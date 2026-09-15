@@ -576,6 +576,34 @@ class RepositoryMixin:
         row = self._connection.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         return dict(row) if row else None
 
+    # -- read-only history accessors (validation / reporting) --------------
+
+    def recent_runs(self, *, limit: int = 30, include_dry_run: bool = True) -> list[dict[str, Any]]:
+        """Most recent runs first. Read-only; used by the acceptance gate."""
+
+        sql = "SELECT * FROM runs"
+        if not include_dry_run:
+            sql += " WHERE dry_run = 0"
+        sql += " ORDER BY started_at DESC LIMIT ?"
+        rows = self._connection.execute(sql, (max(1, int(limit)),)).fetchall()
+        return [dict(row) for row in rows]
+
+    def recent_notifications(self, *, limit: int = 200) -> list[dict[str, Any]]:
+        """Most recent notification rows first. Read-only."""
+
+        rows = self._connection.execute(
+            "SELECT * FROM notifications ORDER BY notified_at DESC, notification_id DESC LIMIT ?",
+            (max(1, int(limit)),),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def notifications_for_run(self, run_id: str) -> list[dict[str, Any]]:
+        rows = self._connection.execute(
+            "SELECT * FROM notifications WHERE run_id = ? ORDER BY notification_id",
+            (str(run_id),),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def count(self, table: str) -> int:
         if table not in {
             "repositories",

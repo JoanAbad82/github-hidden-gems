@@ -22,6 +22,8 @@ All commands print exactly one terminal `RESULT=<STATE>` line.
 | `hidden-gems migrate --root . --db state/history.sqlite3` | Create/upgrade the SQLite schema | `RESULT=DB_MIGRATED`, `RESULT=FAILED_INTEGRITY` (exit 3) |
 | `hidden-gems db-check --root . --db state/history.sqlite3` | Run `PRAGMA integrity_check` and schema validation | `RESULT=DB_VALID`, `RESULT=DB_INVALID` (exit 3) |
 | `hidden-gems run --root . --db state/history.sqlite3` | One discovery run (dry-run by default; prints the run result) | `RESULT=SUCCESS`, `RESULT=SUCCESS_NO_FINDINGS`, `RESULT=PARTIAL_SUCCESS`, `RESULT=PARTIAL_SUCCESS_RATE_LIMIT`, `RESULT=FAILED_INTEGRITY`, `RESULT=FAILED_CONFIGURATION` |
+| `hidden-gems run --root . --controlled-live` | Controlled-live gate: forced dry run with reduced limits (30 seen / 10 light / 3 deep / 2 LLM calls). Budget overrides may only lower a configured limit | same run results as `run`; never publishes an Issue |
+| `hidden-gems validation-status --root . --db state/history.sqlite3 --gradings docs/validation/gradings.yml` | Read-only evaluation of the seven-cycle acceptance gate | `RESULT=VALIDATION_ACCEPTED` (exit 0), `RESULT=VALIDATION_NOT_ACCEPTED` (exit 1), `RESULT=VALIDATION_PENDING` (exit 2), `RESULT=FAILED_INTEGRITY` (exit 3) |
 
 `--db` defaults to `<root>/state/history.sqlite3`.
 
@@ -125,3 +127,30 @@ Before `V1_ACCEPTED`, seven consecutive daily runs must show zero SQLite
 corruption, zero exposed secrets, zero duplicate Issues, zero concurrent state
 conflicts and zero budget overruns; notified repositories must reach a Useful
 Discovery Rate of at least 70% `GOOD+MAYBE`.
+
+### Controlled live gate (Task 17)
+
+```bash
+hidden-gems run --root . --db state/history.sqlite3 --controlled-live
+```
+
+`--controlled-live` lowers every budget below production, forces a dry run even
+when `--live` is also present, and therefore can never create an Issue. Use it
+for the first look at real GitHub data. `--max-light`, `--max-deep`,
+`--max-raw-candidates` and `--max-llm-calls` accept individual reductions; a
+value above the configured limit is rejected with `RESULT=FAILED_CONFIGURATION`.
+
+### Acceptance gate (Task 18)
+
+```bash
+hidden-gems validation-status --root . --db state/history.sqlite3 \
+  --gradings docs/validation/gradings.yml \
+  --markdown docs/validation/v1-acceptance.md
+```
+
+The gate reads only persisted run/notification evidence and the human gradings
+file. It returns `PENDING_MULTI_DAY_VALIDATION` until seven consecutive real
+daily cycles exist and every notified repository is graded; an ungraded
+notification, a dry-run-only window or a missing day keeps it pending, and any
+hard-safety violation (corruption, duplicate Issue, budget overrun, concurrent
+state conflict, exposed secret) fails it.

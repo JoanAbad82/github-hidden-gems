@@ -1,0 +1,25 @@
+# Human grading of every repository notified by a real cycle (Task 18, step 4).
+#
+# One entry per notified repository. `grade` must be GOOD, MAYBE or BAD.
+# An ungraded notification keeps the acceptance gate in
+# PENDING_MULTI_DAY_VALIDATION: never accept a cycle on assumption.
+#
+#   GOOD  -> the finding was genuinely useful for the intended work
+#   MAYBE -> interesting but unproven, narrow or needing confirmation
+#   BAD   -> noise: marketing, tutorial, demo, duplicate or not a hidden gem
+#
+# `score` is the Hidden Gem Score printed in the Issue for that repository.
+#
+# Example entries (commented: no real cycle has been graded yet):
+#
+# gradings:
+#   - github_repo_id: 123456789
+#     grade: GOOD
+#     score: 82
+#     note: "Small agent-memory library with real tests and no docs alternative."
+#   - github_repo_id: 987654321
+#     grade: MAYBE
+#     score: 74
+#     note: "Useful CLI, but the scheduling part is thin."
+
+gradings: []
