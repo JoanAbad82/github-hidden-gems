@@ -77,10 +77,12 @@ def run_pipeline(
     report = ""
     fingerprint: str | None = None
     issue = None
-    llm_budget = LLMBudget(
-        max_calls=int(config.llm.max_llm_calls_per_run),
-        max_budget=float(config.llm.max_llm_budget_per_run),
-    )
+    llm_budget = getattr(llm, "budget", None)
+    if llm_budget is None:
+        llm_budget = LLMBudget(
+            max_calls=int(config.llm.max_llm_calls_per_run),
+            max_budget=float(config.llm.max_llm_budget_per_run),
+        )
     use_llm = bool(config.llm.enabled_default) if llm_enabled is None else bool(llm_enabled)
     # SPEC_V1 section 8: MAX_LLM_CANDIDATES_PER_RUN bounds how many repositories
     # may reach the semantic provider, independently of the call budget.
@@ -472,6 +474,19 @@ def _scoring_metadata(candidate: DiscoveryCandidate) -> dict[str, Any]:
     }
 
 
+def _bounded_error_text(value: Any, *, max_chars: int = 240) -> str:
+    text = " ".join(str(value or "unknown").split())
+    return text[:max_chars] or "unknown"
+
+
+def _llm_error(deep: Any, category: Any, detail: Any | None = None) -> str:
+    repo_id = getattr(getattr(deep, "repo", None), "github_repo_id", "unknown")
+    parts = ["llm", str(repo_id), _bounded_error_text(category, max_chars=80)]
+    if detail is not None:
+        parts.append(_bounded_error_text(detail))
+    return ":".join(parts)
+
+
 def _maybe_enrich(
     config: AppConfig,
     llm: Any,
@@ -490,18 +505,21 @@ def _maybe_enrich(
     if not use_llm:
         return deep
     if not budget.can_call():
-        errors.append("llm:budget_exhausted")
+        errors.append(_llm_error(deep, "budget_exhausted"))
         return deep
     try:
         enriched = provider.analyze_repository(deep.evidence)
     except (LLMBudgetExceeded, LLMProviderError) as exc:
-        errors.append(f"llm:{type(exc).__name__}")
+        errors.append(_llm_error(deep, type(exc).__name__, exc))
         return deep
     except Exception as exc:
-        errors.append(f"llm:{type(exc).__name__}")
+        errors.append(_llm_error(deep, type(exc).__name__, exc))
         return deep
     if getattr(enriched, "status", "OK") != "OK":
-        errors.append("llm:failed")
+        evidence = getattr(enriched, "evidence", {})
+        failure = evidence.get("failure", "failed") if isinstance(evidence, Mapping) else "failed"
+        reason = evidence.get("failure_reason") if isinstance(evidence, Mapping) else None
+        errors.append(_llm_error(deep, failure, reason))
         return deep
     deep.relevance_suggestion = enriched.relevance_suggestion
     deep.originality_suggestion = enriched.originality_suggestion
