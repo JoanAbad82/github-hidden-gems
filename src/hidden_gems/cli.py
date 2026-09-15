@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .common.logging import configure_logging
 from .common.time import utcnow
-from .config import ConfigError, load_config
+from .config import ConfigError, load_config, resolve_llm_enabled
 from .models import RunContext
 from .orchestrator import run_pipeline
 from .llm.base import DisabledLLMProvider
@@ -94,7 +94,7 @@ def resolve_db_path(config, args: argparse.Namespace) -> Path:
     override = getattr(args, "db_path", None) or os.environ.get("HIDDEN_GEMS_DB")
     if override:
         return Path(override).expanduser().resolve()
-    return (Path(config.root) / config.state.database_filename).resolve()
+    return (Path(config.root) / "state" / config.state.database_filename).resolve()
 
 
 def cmd_validate_config(args: argparse.Namespace) -> int:
@@ -180,9 +180,11 @@ def cmd_run(args: argparse.Namespace) -> int:
             score_version=config.scoring.score_version,
             prompt_version=PROMPT_VERSION,
         )
-        enabled = config.llm.enabled_default if args.llm is None else bool(args.llm)
-        if os.environ.get("HIDDEN_GEMS_LLM_ENABLED") and args.llm is None:
-            enabled = os.environ["HIDDEN_GEMS_LLM_ENABLED"].strip().lower() in {"1", "true", "yes"}
+        if args.llm is None:
+            # `LLM_ENABLED` is the documented/workflow variable; `--llm`/`--no-llm` win.
+            enabled = resolve_llm_enabled(config, os.environ)
+        else:
+            enabled = bool(args.llm)
         llm = _build_llm(config, store, context, enabled)
         publisher = None
         if not dry_run:

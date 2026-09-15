@@ -102,3 +102,28 @@ def test_validate_config_failure_exit_code(tmp_path: Path, canonical_config_tree
     tree = canonical_config_tree(tmp_path, extra_limits={"max_lmm_calls": 3})
     assert cli.main(["validate-config", "--root", str(tree)]) == 2
     assert "RESULT=FAILED_CONFIGURATION" in capsys.readouterr().out
+
+
+def test_default_database_path_lives_under_the_state_directory(monkeypatch, tree: Path):
+    monkeypatch.delenv("HIDDEN_GEMS_DB", raising=False)
+    assert cli.main(["migrate", "--root", str(tree)]) == 0
+    assert (tree / "state" / "history.sqlite3").is_file()
+
+
+def test_llm_enabled_env_var_switches_enrichment_on(monkeypatch, tree: Path):
+    captured: dict = {}
+    _patch_pipeline(monkeypatch, captured)
+
+    def fake_build_llm(config, store, context, enabled):
+        captured["llm_enabled"] = enabled
+        return None
+
+    monkeypatch.setattr(cli, "_build_llm", fake_build_llm)
+    monkeypatch.setenv("LLM_ENABLED", "true")
+    db = tree / "state" / "history.sqlite3"
+    assert cli.main(["run", "--root", str(tree), "--db", str(db)]) == 0
+    assert captured["llm_enabled"] is True
+
+    monkeypatch.setenv("LLM_ENABLED", "false")
+    assert cli.main(["run", "--root", str(tree), "--db", str(db)]) == 0
+    assert captured["llm_enabled"] is False
