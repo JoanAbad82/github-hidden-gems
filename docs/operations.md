@@ -20,7 +20,7 @@ All commands print exactly one terminal `RESULT=<STATE>` line.
 |---|---|---|
 | `hidden-gems validate-config --root .` | Validate every configuration file and the frozen invariants before any network activity | `RESULT=CONFIG_VALID`, `RESULT=FAILED_CONFIGURATION` (exit 2) |
 | `hidden-gems migrate --root . --db state/history.sqlite3` | Create/upgrade the SQLite schema | `RESULT=DB_MIGRATED`, `RESULT=FAILED_INTEGRITY` (exit 3) |
-| `hidden-gems db-check --root . --db state/history.sqlite3` | Run `PRAGMA integrity_check` and schema validation | `RESULT=DB_VALID`, `RESULT=DB_INVALID` (exit 3) |
+| `hidden-gems db-check --root . --db state/history.sqlite3` | Run `PRAGMA integrity_check` and schema validation | `RESULT=DB_VALID`, `RESULT=FAILED_INTEGRITY` (exit 3), `RESULT=FAILED_CONFIGURATION` (exit 2) |
 | `hidden-gems run --root . --db state/history.sqlite3` | One discovery run (dry-run by default; prints the run result) | `RESULT=SUCCESS`, `RESULT=SUCCESS_NO_FINDINGS`, `RESULT=PARTIAL_SUCCESS`, `RESULT=PARTIAL_SUCCESS_RATE_LIMIT`, `RESULT=FAILED_INTEGRITY`, `RESULT=FAILED_CONFIGURATION` |
 | `hidden-gems run --root . --controlled-live` | Controlled-live gate: forced dry run with reduced limits (30 seen / 10 light / 3 deep / 2 LLM calls). Budget overrides may only lower a configured limit | same run results as `run`; never publishes an Issue |
 | `hidden-gems validation-status --root . --db state/history.sqlite3 --gradings docs/validation/gradings.yml` | Read-only evaluation of the seven-cycle acceptance gate | `RESULT=VALIDATION_ACCEPTED` (exit 0), `RESULT=VALIDATION_NOT_ACCEPTED` (exit 1), `RESULT=VALIDATION_PENDING` (exit 2), `RESULT=FAILED_INTEGRITY` (exit 3) |
@@ -107,7 +107,7 @@ commits) are performed.
 hidden-gems db-check --root . --db state/history.sqlite3   # expect RESULT=DB_VALID
 ```
 
-If it reports `DB_INVALID`, restore the most recent file from the `state`
+If it reports `RESULT=FAILED_INTEGRITY`, restore the most recent file from the `state`
 branch `backups/` directory (rotated, at most `state.max_backups` files) and
 re-run `db-check`. A run that detects corruption ends as `FAILED_INTEGRITY`
 and refuses to publish state.
