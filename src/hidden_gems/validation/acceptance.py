@@ -420,7 +420,8 @@ def render_acceptance_markdown(report: AcceptanceReport) -> str:
         lines.append(f"| `{item.name}` | {item.status} | {item.detail} |")
     lines.extend(["", "## Metrics", "", "| Metric | Value |", "|---|---|"])
     for key in sorted(report.metrics):
-        lines.append(f"| `{key}` | {report.metrics[key]} |")
+        value = report.metrics[key]
+        lines.append(f"| `{key}` | {'n/a' if value is None else value} |")
     if report.blocking:
         lines.extend(["", "## Blocking / pending reasons", ""])
         for reason in report.blocking:

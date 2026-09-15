@@ -178,6 +178,13 @@ def test_markdown_renderer_emits_exactly_one_status_line():
     assert report.status in {STATUS_ACCEPTED, STATUS_NOT_ACCEPTED, STATUS_PENDING}
 
 
+def test_markdown_renderer_never_prints_python_none():
+    report = evaluate_acceptance([])
+    markdown = render_acceptance_markdown(report)
+    assert "None" not in markdown
+    assert "n/a" in markdown
+
+
 def test_operational_metrics_aggregate_llm_cost_and_stage_counts():
     cycles = [
         _cycle(

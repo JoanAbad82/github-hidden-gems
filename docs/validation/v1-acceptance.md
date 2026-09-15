@@ -34,14 +34,26 @@ of accepted. A single hard-safety violation fails the gate.
 
 | Metric | Value |
 |---|---|
-| `cycles_observed` | 0 |
+| `candidates_deep_analyzed` | 0 |
+| `candidates_discovered` | 0 |
+| `candidates_light_analyzed` | 0 |
+| `candidates_reported` | 0 |
 | `consecutive_cycles` | 0 |
-| `notified_repositories` | 0 |
-| `useful_notifications` | 0 |
-| `useful_discovery_rate` | n/a |
-| `issues_created` | 0 |
+| `cycles_observed` | 0 |
 | `dry_run_cycles` | 0 |
+| `issues_created` | 0 |
+| `llm_cache_hits` | 0 |
+| `llm_calls` | 0 |
+| `llm_cost` | 0 |
+| `notified_repositories` | 0 |
 | `ungraded_notifications` | 0 |
+| `useful_discovery_rate` | n/a |
+| `useful_notifications` | 0 |
+| `window_cycles` | 0 |
+
+`candidates_*` and the LLM counters are persisted per run by the orchestrator;
+GitHub API calls per run and Actions minutes per run are read from the workflow
+run in GitHub Actions (they are not derivable from local state).
 
 ## Why the report is not accepted
 
