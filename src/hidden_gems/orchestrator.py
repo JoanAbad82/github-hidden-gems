@@ -70,6 +70,7 @@ def run_pipeline(
         "scored": 0,
         "notifiable": 0,
         "reported": 0,
+        "llm_candidate_cap_skipped": 0,
     }
     errors: list[str] = []
     result = "SUCCESS"
@@ -81,6 +82,10 @@ def run_pipeline(
         max_budget=float(config.llm.max_llm_budget_per_run),
     )
     use_llm = bool(config.llm.enabled_default) if llm_enabled is None else bool(llm_enabled)
+    # SPEC_V1 section 8: MAX_LLM_CANDIDATES_PER_RUN bounds how many repositories
+    # may reach the semantic provider, independently of the call budget.
+    llm_candidate_cap = int(config.llm.max_llm_candidates_per_run)
+    llm_candidates_enriched = 0
 
     history.start_run(
         run_id=context.run_id,
@@ -169,9 +174,14 @@ def run_pipeline(
             counts["deep_analyzed"] += 1
 
             deep = None
+            enrich = use_llm and llm_candidates_enriched < llm_candidate_cap
+            if use_llm and not enrich:
+                counts["llm_candidate_cap_skipped"] += 1
             try:
                 deep = DeepAnalyzer(config, github).analyze(analysis)
-                deep = _maybe_enrich(config, llm, deep, use_llm, llm_budget, errors)
+                deep = _maybe_enrich(config, llm, deep, enrich, llm_budget, errors)
+                if enrich:
+                    llm_candidates_enriched += 1
             except Exception as exc:  # fail-soft per candidate
                 errors.append(f"deep:{candidate.repo.github_repo_id}:{type(exc).__name__}")
 
@@ -246,6 +256,8 @@ def run_pipeline(
         LOGGER.error("pipeline failed: %s", type(exc).__name__)
     finally:
         usage = dict(llm_budget.snapshot())
+        usage["candidate_cap_skipped"] = int(counts["llm_candidate_cap_skipped"])
+        usage["llm_candidates_used"] = int(llm_candidates_enriched)
         context.usage.update(usage)
         summary = RunSummary(
             run_id=context.run_id,
@@ -295,6 +307,7 @@ def _budgets(config: AppConfig) -> dict[str, Any]:
         ),
         "max_deep_analysis": int(config.limits.run_budgets.get("max_deep_analysis", 25)),
         "max_llm_calls_per_run": int(config.llm.max_llm_calls_per_run),
+        "max_llm_candidates_per_run": int(config.llm.max_llm_candidates_per_run),
     }
 
 
