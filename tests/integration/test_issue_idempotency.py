@@ -185,6 +185,7 @@ def test_empty_report_is_never_published(app_config):
         publisher.publish("", "REPORT:deadbeef", ["discovery-report"])
 
 
-def test_publisher_requires_a_repository(app_config):
+def test_publisher_requires_a_repository(app_config, monkeypatch):
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
     with pytest.raises(ValueError):
         GitHubIssuePublisher(app_config, FakeGitHubClient(), repository="")
