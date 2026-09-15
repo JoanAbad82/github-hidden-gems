@@ -310,10 +310,44 @@ def cmd_run(args: argparse.Namespace) -> int:
             github.close()
         store.close()
 
+    if not getattr(summary, "dry_run", True):
+        try:
+            write_run_manifest(resolve_db_path(config, args), summary)
+        except Exception as exc:  # the run result is already persisted in SQLite
+            print(f"WARN=state_manifest_not_written:{type(exc).__name__}", file=sys.stderr)
+
     print(f"RESULT={summary.result}")
     if summary.result in NON_RETRYABLE_RESULTS:
         return 2
     return 0
+
+
+def write_run_manifest(db_path, summary, *, manifest_path=None):
+    """Refresh `state_manifest.json` beside the database after a live run.
+
+    Dry runs persist nothing, so they leave no manifest behind. The manifest
+    holds only technical facts (schema version, hashes, run id, report state);
+    it never contains secrets or report bodies.
+    """
+
+    if getattr(summary, "dry_run", True):
+        return None
+    from .history.state_branch import write_state_manifest
+
+    if getattr(summary, "issue", None) is not None:
+        report_state = "REPORT_PUBLISHED"
+    elif getattr(summary, "report_fingerprint", None):
+        report_state = "PENDING_REPORT"
+    else:
+        report_state = "IDLE"
+    return write_state_manifest(
+        Path(db_path),
+        run_id=getattr(summary, "run_id", None),
+        run_result=getattr(summary, "result", None),
+        report_state=report_state,
+        report_fingerprint=getattr(summary, "report_fingerprint", None),
+        manifest_path=Path(manifest_path) if manifest_path is not None else None,
+    )
 
 
 def cmd_validation_status(args: argparse.Namespace) -> int:

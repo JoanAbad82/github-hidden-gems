@@ -17,11 +17,85 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from ..common.time import utcnow
 
 MANIFEST_SCHEMA_VERSION = "STATE_MANIFEST_V1"
+
+#: Manifest keys frozen by `state_manifest.schema.json`.
+MANIFEST_KEYS: tuple[str, ...] = (
+    "schema_version",
+    "state_timestamp",
+    "db_sha256",
+    "db_bytes",
+    "schema_migration_version",
+    "last_run_id",
+    "last_run_result",
+    "report_state",
+    "pending_report_fingerprint",
+    "backups",
+)
+
+REPORT_STATES: tuple[str, ...] = ("IDLE", "PENDING_REPORT", "REPORT_PUBLISHED")
+
+
+def write_state_manifest(
+    db_path: Path,
+    *,
+    run_id: str | None = None,
+    run_result: str | None = None,
+    report_state: str = "IDLE",
+    report_fingerprint: str | None = None,
+    manifest_path: Path | None = None,
+    moment: datetime | None = None,
+    schema_migration_version: int | None = None,
+    backups: Sequence[str] | None = None,
+) -> Path:
+    """Write (or refresh) the `state` manifest beside the canonical database.
+
+    The manifest records only technical, non-secret facts about the state
+    database. It never includes environment values, tokens or report bodies.
+    """
+
+    db_path = Path(db_path)
+    target = Path(manifest_path) if manifest_path is not None else db_path.with_name("state_manifest.json")
+    previous: dict[str, Any] = {}
+    if target.exists():
+        try:
+            loaded = json.loads(target.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            loaded = {}
+        if isinstance(loaded, dict):
+            previous = {key: value for key, value in loaded.items() if key in MANIFEST_KEYS}
+
+    if report_state not in REPORT_STATES:
+        raise ValueError(f"invalid report_state: {report_state!r}")
+    timestamp = (moment or utcnow()).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    manifest: dict[str, Any] = dict(previous)
+    manifest["schema_version"] = MANIFEST_SCHEMA_VERSION
+    manifest["state_timestamp"] = timestamp
+    manifest["report_state"] = report_state
+    manifest["last_run_id"] = run_id if run_id is not None else previous.get("last_run_id")
+    manifest["last_run_result"] = (
+        run_result if run_result is not None else previous.get("last_run_result")
+    )
+    manifest["pending_report_fingerprint"] = (
+        report_fingerprint if report_state == "PENDING_REPORT" else None
+    )
+    if schema_migration_version is not None:
+        manifest["schema_migration_version"] = int(schema_migration_version)
+    if backups is not None:
+        manifest["backups"] = list(backups)
+    if db_path.exists():
+        manifest["db_sha256"] = hashlib.sha256(db_path.read_bytes()).hexdigest()
+        manifest["db_bytes"] = db_path.stat().st_size
+
+    manifest = {key: manifest[key] for key in MANIFEST_KEYS if key in manifest}
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return target
 
 
 class StateConflict(RuntimeError):
