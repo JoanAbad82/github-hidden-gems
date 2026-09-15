@@ -141,14 +141,21 @@ class DeepSeekProvider:
             return to_deep_analysis(repo, payload)
 
         self.budget.record_failure()
+        failure_type = type(last_error).__name__ if last_error is not None else "UnknownLLMError"
+        failure_reason = str(last_error) if last_error is not None else "unknown LLM failure"
+        failure_reason = " ".join(failure_reason.split())[:240]
         return DeepAnalysis(
             repo=repo,
-            evidence={"llm_evidence": dict(evidence), "failure": type(last_error).__name__},
+            evidence={
+                "llm_evidence": dict(evidence),
+                "failure": failure_type,
+                "failure_reason": failure_reason,
+            },
             relevance_suggestion=None,
             originality_suggestion=None,
             why_interesting=None,
             summary=None,
-            risks=(f"LLM analysis unavailable: {last_error}",),
+            risks=(f"LLM analysis unavailable: {failure_reason}",),
             confidence="LOW",
             status="LLM_FAILED",
             source="PROVIDER",
