@@ -68,7 +68,7 @@ Findings from the probe:
 - Only `GET` requests were issued. No Issue was created, no repository was
   cloned, no candidate code ran and no LLM call was made.
 
-## 4. Reduced-limit controlled-live dry run (prepared, user-run)
+## 4. Reduced-limit controlled-live dry run (executed, token-less)
 
 The controlled-live gate lowers every budget and forces a dry run, so it cannot
 publish an Issue even if `--live` is passed:
@@ -76,6 +76,27 @@ publish an Issue even if `--live` is passed:
 ```
 hidden-gems run --root . --db state/history.sqlite3 --controlled-live
 ```
+
+Executed on 2026-09-15 with the limits lowered further (`--max-light 3
+--max-deep 1`) to stay inside the unauthenticated GitHub budget. Observed
+terminal line: `RESULT=SUCCESS_NO_FINDINGS` (exit 0). Persisted run row
+`RUN-20260915T152056Z`:
+
+| Field | Value |
+|---|---|
+| started_at | `2026-09-15T15:20:56Z` |
+| dry_run | `1` (no Issue can be created) |
+| issue_number | `None` — `ISSUES_CREATED=0` |
+| discovered / rejected / admitted | 30 / 9 / 21 |
+| light_analyzed / pruned (max score < 70) | 3 / 2 |
+| deep_analyzed / scored / notifiable / reported | 1 / 1 / 0 / 0 |
+| LLM calls / cache hits / cost | 0 / 0 / 0 |
+| repositories / filter_decisions / notifications | 30 / 32 / 0 |
+
+Every GitHub request in the run was a read-only `GET` (search, repository,
+tree, contents): no clone, no install, no candidate code executed, no Issue
+created, no LLM call. Repository content was read statically and the hard
+filter rejected 9 of the 30 candidates.
 
 Limits enforced by `--controlled-live` (all strictly below production):
 

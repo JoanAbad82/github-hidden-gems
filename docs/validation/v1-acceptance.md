@@ -59,6 +59,11 @@ run in GitHub Actions (they are not derivable from local state).
 
 - No scheduled production cycle has run yet: the state branch history is empty
   in this implementation environment.
+- One local token-less controlled-live dry run exists
+  (`RUN-20260915T152056Z`, `RESULT=SUCCESS_NO_FINDINGS`, zero Issues — see
+  `docs/validation/controlled-live-20260915.md`). A dry run cannot satisfy the
+  live-publication criterion, so it does not move this gate forward; it only
+  proves the pipeline runs end to end against real read-only GitHub data.
 - Controlled publication and email delivery are
   `PENDING_USER_VALIDATION` (creating real GitHub Issues was prohibited in this
   run; see `docs/validation/controlled-live-20260915.md`).
