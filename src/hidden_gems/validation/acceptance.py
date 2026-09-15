@@ -79,6 +79,10 @@ class CycleEvidence:
     secret_exposures: int = 0
     notifications: tuple[NotificationGrade, ...] = ()
     ungraded_notifications: int = 0
+    llm_calls: int = 0
+    llm_cache_hits: int = 0
+    llm_cost: float = 0.0
+    stage_counts: Mapping[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.result not in CYCLE_RESULTS:
@@ -370,7 +374,25 @@ def evaluate_acceptance(
         "issues_created": _sum(window, "issues_created"),
         "dry_run_cycles": sum(1 for cycle in window if cycle.dry_run),
         "ungraded_notifications": _sum(window, "ungraded_notifications"),
+        "llm_calls": _sum(window, "llm_calls"),
+        "llm_cache_hits": _sum(window, "llm_cache_hits"),
+        "llm_cost": round(sum(float(cycle.llm_cost or 0.0) for cycle in window), 6),
+        "candidates_discovered": sum(
+            int(cycle.stage_counts.get("discovered", 0) or 0) for cycle in window
+        ),
+        "candidates_light_analyzed": sum(
+            int(cycle.stage_counts.get("light_analyzed", 0) or 0) for cycle in window
+        ),
+        "candidates_deep_analyzed": sum(
+            int(cycle.stage_counts.get("deep_analyzed", 0) or 0) for cycle in window
+        ),
+        "candidates_reported": sum(
+            int(cycle.stage_counts.get("reported", 0) or 0) for cycle in window
+        ),
     }
+    if window:
+        per_cycle_cost = sum(float(cycle.llm_cost or 0.0) for cycle in window) / len(window)
+        metrics["projected_monthly_llm_cost"] = round(per_cycle_cost * 30, 6)
     if window:
         metrics["window_start"] = window[0].run_date.isoformat()
         metrics["window_end"] = window[-1].run_date.isoformat()
@@ -488,6 +510,10 @@ def cycles_from_history(
                 secret_exposures=sum(1 for error in errors if _looks_like_secret(error)),
                 notifications=tuple(graded),
                 ungraded_notifications=ungraded,
+                llm_calls=int(usage.get("calls_made") or 0),
+                llm_cache_hits=int(usage.get("cache_hits") or 0),
+                llm_cost=float(usage.get("cost") or 0.0),
+                stage_counts=_stage_counts(usage),
             )
         )
     return cycles
@@ -589,6 +615,19 @@ def _budget_overruns(usage: Mapping[str, Any]) -> int:
     if isinstance(calls, int) and isinstance(maximum, int) and maximum and calls > maximum:
         overruns += 1
     return overruns
+
+
+def _stage_counts(usage: Mapping[str, Any]) -> dict[str, int]:
+    """Per-stage candidate counters persisted inside the run usage payload."""
+
+    raw = usage.get("counts")
+    if not isinstance(raw, Mapping):
+        return {}
+    return {
+        str(key): int(value)
+        for key, value in raw.items()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    }
 
 
 _SECRET_MARKERS = ("ghp_", "gho_", "github_pat_", "sk-")

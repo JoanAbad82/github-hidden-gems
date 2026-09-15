@@ -176,3 +176,23 @@ def test_markdown_renderer_emits_exactly_one_status_line():
     assert markdown.count("STATUS=") == 1
     assert markdown.rstrip().endswith(f"STATUS={report.status}")
     assert report.status in {STATUS_ACCEPTED, STATUS_NOT_ACCEPTED, STATUS_PENDING}
+
+
+def test_operational_metrics_aggregate_llm_cost_and_stage_counts():
+    cycles = [
+        _cycle(
+            i,
+            llm_calls=3,
+            llm_cache_hits=1,
+            llm_cost=0.02,
+            stage_counts={"discovered": 100, "light_analyzed": 20, "deep_analyzed": 5},
+        )
+        for i in range(7)
+    ]
+    report = evaluate_acceptance(cycles)
+    assert report.metrics["llm_calls"] == 21
+    assert report.metrics["llm_cache_hits"] == 7
+    assert report.metrics["llm_cost"] == pytest.approx(0.14)
+    assert report.metrics["candidates_discovered"] == 700
+    assert report.metrics["candidates_deep_analyzed"] == 35
+    assert report.metrics["projected_monthly_llm_cost"] == pytest.approx(0.14 / 7 * 30)

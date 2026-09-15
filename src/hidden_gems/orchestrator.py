@@ -258,6 +258,7 @@ def run_pipeline(
         usage = dict(llm_budget.snapshot())
         usage["candidate_cap_skipped"] = int(counts["llm_candidate_cap_skipped"])
         usage["llm_candidates_used"] = int(llm_candidates_enriched)
+        usage["counts"] = {key: int(value) for key, value in counts.items()}
         context.usage.update(usage)
         summary = RunSummary(
             run_id=context.run_id,
