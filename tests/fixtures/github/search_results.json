@@ -1,0 +1,48 @@
+{
+  "total_count": 2,
+  "incomplete_results": false,
+  "items": [
+    {
+      "id": 900001,
+      "name": "flowkit",
+      "full_name": "acme-labs/flowkit",
+      "owner": {"login": "acme-labs"},
+      "html_url": "https://github.com/acme-labs/flowkit",
+      "description": "Self-hosted workflow automation with a plugin runtime",
+      "stargazers_count": 41,
+      "created_at": "2026-08-30T10:12:00Z",
+      "updated_at": "2026-09-14T08:00:00Z",
+      "pushed_at": "2026-09-14T08:00:00Z",
+      "language": "Python",
+      "topics": ["automation", "workflow", "self-hosted"],
+      "fork": false,
+      "archived": false,
+      "is_template": false,
+      "size": 512,
+      "default_branch": "main",
+      "license": {"spdx_id": "MIT"},
+      "open_issues_count": 3
+    },
+    {
+      "id": 900002,
+      "name": "tableforge",
+      "full_name": "acme-labs/tableforge",
+      "owner": {"login": "acme-labs"},
+      "html_url": "https://github.com/acme-labs/tableforge",
+      "description": "Extraction of structured tables from messy documents",
+      "stargazers_count": 7,
+      "created_at": "2026-09-05T10:12:00Z",
+      "updated_at": "2026-09-13T08:00:00Z",
+      "pushed_at": "2026-09-13T08:00:00Z",
+      "language": "Rust",
+      "topics": ["data-extraction", "parsing"],
+      "fork": false,
+      "archived": false,
+      "is_template": false,
+      "size": 220,
+      "default_branch": "main",
+      "license": {"spdx_id": "Apache-2.0"},
+      "open_issues_count": 1
+    }
+  ]
+}
