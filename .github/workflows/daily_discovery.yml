@@ -97,8 +97,11 @@ jobs:
         env:
           DRY_RUN: ${{ steps.mode.outputs.dry_run }}
         run: |
-          hidden-gems run --root . --db state/history.sqlite3 \
-            ${DRY_RUN:+--dry-run}
+          if [ "$DRY_RUN" = "true" ]; then
+            hidden-gems run --root . --db state/history.sqlite3 --dry-run
+          else
+            hidden-gems run --root . --db state/history.sqlite3 --live
+          fi
 
       - name: Verify database integrity
         working-directory: app
