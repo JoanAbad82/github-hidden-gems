@@ -1,0 +1,239 @@
+{
+  "archived_real_project": {
+    "payload": {
+      "id": 1001,
+      "full_name": "acme-labs/legacy-flow",
+      "html_url": "https://github.com/acme-labs/legacy-flow",
+      "owner": {"login": "acme-labs"},
+      "name": "legacy-flow",
+      "description": "workflow automation runtime",
+      "stargazers_count": 120,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z",
+      "pushed_at": "2025-01-01T00:00:00Z",
+      "language": "Python",
+      "topics": ["automation", "workflow"],
+      "fork": false,
+      "archived": true,
+      "size": 500
+    },
+    "expected_reason": "REJECT_ARCHIVED"
+  },
+  "trivial_fork": {
+    "payload": {
+      "id": 1002,
+      "full_name": "someone/copied-script",
+      "html_url": "https://github.com/someone/copied-script",
+      "owner": {"login": "someone"},
+      "name": "copied-script",
+      "description": "fork of a data extraction tool",
+      "stargazers_count": 0,
+      "created_at": "2026-09-01T00:00:00Z",
+      "updated_at": "2026-09-02T00:00:00Z",
+      "pushed_at": "2026-09-02T00:00:00Z",
+      "language": "Python",
+      "topics": ["data-extraction"],
+      "fork": true,
+      "archived": false,
+      "size": 300
+    },
+    "expected_reason": "REJECT_FORK"
+  },
+  "empty_shell": {
+    "payload": {
+      "id": 1003,
+      "full_name": "ghost/placeholder",
+      "html_url": "https://github.com/ghost/placeholder",
+      "owner": {"login": "ghost"},
+      "name": "placeholder",
+      "description": "",
+      "stargazers_count": 0,
+      "created_at": "2026-09-10T00:00:00Z",
+      "updated_at": "2026-09-10T00:00:00Z",
+      "pushed_at": "2026-09-10T00:00:00Z",
+      "language": null,
+      "topics": [],
+      "fork": false,
+      "archived": false,
+      "size": 0
+    },
+    "expected_reason": "REJECT_EMPTY"
+  },
+  "tutorial_notebook": {
+    "payload": {
+      "id": 1004,
+      "full_name": "teacher/ml-tutorial",
+      "html_url": "https://github.com/teacher/ml-tutorial",
+      "owner": {"login": "teacher"},
+      "name": "ml-tutorial",
+      "description": "Tutorial: learn LLM agents step by step",
+      "stargazers_count": 40,
+      "created_at": "2026-08-20T00:00:00Z",
+      "updated_at": "2026-09-01T00:00:00Z",
+      "pushed_at": "2026-09-01T00:00:00Z",
+      "language": "Jupyter Notebook",
+      "topics": ["tutorial", "llm"],
+      "fork": false,
+      "archived": false,
+      "size": 900
+    },
+    "evidence": {
+      "tree_paths": ["README.md", "lesson-01.ipynb", "lesson-02.ipynb"],
+      "readme_text": "This is a tutorial. Follow the lessons step by step to learn."
+    },
+    "expected_reason": "REJECT_TUTORIAL"
+  },
+  "template_metadata": {
+    "payload": {
+      "id": 1005,
+      "full_name": "acme-labs/service-template",
+      "html_url": "https://github.com/acme-labs/service-template",
+      "owner": {"login": "acme-labs"},
+      "name": "service-template",
+      "description": "Cookiecutter template for automation services",
+      "stargazers_count": 30,
+      "created_at": "2026-08-01T00:00:00Z",
+      "updated_at": "2026-09-01T00:00:00Z",
+      "pushed_at": "2026-09-01T00:00:00Z",
+      "language": "Python",
+      "topics": ["template", "automation"],
+      "fork": false,
+      "archived": false,
+      "is_template": true,
+      "size": 120
+    },
+    "expected_reason": "REJECT_TEMPLATE"
+  },
+  "demo_showcase": {
+    "payload": {
+      "id": 1006,
+      "full_name": "acme-labs/agent-demo",
+      "html_url": "https://github.com/acme-labs/agent-demo",
+      "owner": {"login": "acme-labs"},
+      "name": "agent-demo",
+      "description": "Demo app showing our LLM agent platform",
+      "stargazers_count": 15,
+      "created_at": "2026-08-25T00:00:00Z",
+      "updated_at": "2026-09-05T00:00:00Z",
+      "pushed_at": "2026-09-05T00:00:00Z",
+      "language": "TypeScript",
+      "topics": ["demo", "llm"],
+      "fork": false,
+      "archived": false,
+      "size": 200
+    },
+    "evidence": {
+      "tree_paths": ["README.md", "demo.tsx"],
+      "readme_text": "This is a demo app. It shows a sample integration for our platform."
+    },
+    "expected_reason": "REJECT_DEMO"
+  },
+  "spam_promo": {
+    "payload": {
+      "id": 1007,
+      "full_name": "growth-king/free-money-bot",
+      "html_url": "https://github.com/growth-king/free-money-bot",
+      "owner": {"login": "growth-king"},
+      "name": "free-money-bot",
+      "description": "BEST trading bot ever!!! 100% guaranteed profits, absolutely free",
+      "stargazers_count": 3,
+      "created_at": "2026-09-01T00:00:00Z",
+      "updated_at": "2026-09-02T00:00:00Z",
+      "pushed_at": "2026-09-02T00:00:00Z",
+      "language": "HTML",
+      "topics": ["trading"],
+      "fork": false,
+      "archived": false,
+      "size": 40
+    },
+    "evidence": {
+      "tree_paths": ["index.html"],
+      "readme_text": "Click the links below. Amazing results. Guaranteed profits. Join now!"
+    },
+    "expected_reason": "REJECT_SPAM"
+  },
+  "ssh_agent_false_positive": {
+    "payload": {
+      "id": 1008,
+      "full_name": "ops-tools/ssh-agent-helper",
+      "html_url": "https://github.com/ops-tools/ssh-agent-helper",
+      "owner": {"login": "ops-tools"},
+      "name": "ssh-agent-helper",
+      "description": "Helper for ssh-agent key management",
+      "stargazers_count": 25,
+      "created_at": "2026-08-20T00:00:00Z",
+      "updated_at": "2026-09-05T00:00:00Z",
+      "pushed_at": "2026-09-05T00:00:00Z",
+      "language": "Go",
+      "topics": ["ssh", "security"],
+      "fork": false,
+      "archived": false,
+      "size": 300
+    },
+    "evidence": {
+      "tree_paths": ["README.md", "main.go"],
+      "readme_text": "Manage ssh-agent identities and forward your keys safely."
+    },
+    "expected_reason": "REJECT_IRRELEVANT"
+  },
+  "zero_star_real_project": {
+    "payload": {
+      "id": 1009,
+      "full_name": "quiet-dev/document-forge",
+      "html_url": "https://github.com/quiet-dev/document-forge",
+      "owner": {"login": "quiet-dev"},
+      "name": "document-forge",
+      "description": "Extraction of structured data from messy documents",
+      "stargazers_count": 0,
+      "created_at": "2026-09-01T00:00:00Z",
+      "updated_at": "2026-09-10T00:00:00Z",
+      "pushed_at": "2026-09-10T00:00:00Z",
+      "language": "Python",
+      "topics": ["data-extraction", "document-parsing"],
+      "fork": false,
+      "archived": false,
+      "size": 900
+    },
+    "expected_reason": null
+  },
+  "one_contributor_real_project": {
+    "payload": {
+      "id": 1010,
+      "full_name": "solo/backtest-lab",
+      "html_url": "https://github.com/solo/backtest-lab",
+      "owner": {"login": "solo"},
+      "name": "backtest-lab",
+      "description": "Backtesting engine for quantitative trading strategies",
+      "stargazers_count": 8,
+      "created_at": "2026-08-15T00:00:00Z",
+      "updated_at": "2026-09-01T00:00:00Z",
+      "pushed_at": "2026-09-01T00:00:00Z",
+      "language": "Rust",
+      "topics": ["backtesting", "trading"],
+      "fork": false,
+      "archived": false,
+      "size": 700
+    },
+    "expected_reason": null
+  },
+  "new_real_project": {
+    "payload": {
+      "id": 1011,
+      "full_name": "acme-labs/flowkit",
+      "html_url": "https://github.com/acme-labs/flowkit",
+      "owner": {"login": "acme-labs"},
+      "name": "flowkit",
+      "description": "Self-hosted workflow automation with a plugin runtime",
+      "stargazers_count": 41,
+      "created_at": "2026-08-30T00:00:00Z",
+      "updated_at": "2026-09-14T00:00:00Z",
+      "pushed_at": "2026-09-14T00:00:00Z",
+      "language": "Python",
+      "topics": ["automation", "workflow", "self-hosted"],
+      "fork": false,
+      "archived": false,
+      "size": 512
+    },
+    "expected_reason": null
+  }
+}

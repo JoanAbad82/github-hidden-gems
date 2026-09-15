@@ -1,0 +1,19 @@
+{
+  "candidate": {
+    "github_repo_id": 107,
+    "full_name": "acme/trading-demo-app",
+    "description": "Demo app to showcase a proof of concept trading dashboard",
+    "stars": 5,
+    "created_at": "2026-08-15T00:00:00Z",
+    "updated_at": "2026-08-30T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["demo", "trading"],
+    "size_kb": 60
+  },
+  "evidence": {
+    "readme_text": "# Demo\n\nA playground sample app for a conference talk. Not intended for production use.",
+    "tree_paths": ["app.py", "README.md"],
+    "manifest_names": ["requirements.txt"]
+  },
+  "expected": {"outcome": "REJECT_DEMO"}
+}

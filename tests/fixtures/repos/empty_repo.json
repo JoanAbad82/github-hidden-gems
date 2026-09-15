@@ -1,0 +1,15 @@
+{
+  "candidate": {
+    "github_repo_id": 103,
+    "full_name": "acme/empty-shell",
+    "description": null,
+    "stars": 0,
+    "created_at": "2026-09-10T00:00:00Z",
+    "updated_at": "2026-09-10T00:00:00Z",
+    "primary_language": null,
+    "topics": [],
+    "size_kb": 0
+  },
+  "evidence": {"tree_paths": [], "manifest_names": []},
+  "expected": {"outcome": "REJECT_EMPTY"}
+}

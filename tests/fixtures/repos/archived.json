@@ -1,0 +1,16 @@
+{
+  "candidate": {
+    "github_repo_id": 101,
+    "full_name": "acme/archived-tool",
+    "description": "An archived automation tool for local batch jobs",
+    "stars": 42,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-06-01T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["automation", "workflow"],
+    "is_archived": true,
+    "size_kb": 800
+  },
+  "evidence": {"tree_paths": ["src/app.py", "README.md"], "manifest_names": ["pyproject.toml"]},
+  "expected": {"outcome": "REJECT_ARCHIVED"}
+}
