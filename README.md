@@ -64,5 +64,23 @@ See [docs/operations.md](docs/operations.md) for secrets
 setting, `NOTIFICATION_GITHUB_LOGIN`, dry-run/live modes, budget zones and
 recovery procedures.
 
+## Validation gates
+
+```bash
+# controlled-live gate: forced dry run with reduced limits (30/10/3 seen-light-deep, 2 LLM calls)
+hidden-gems run --root . --db state/history.sqlite3 --controlled-live
+
+# seven-cycle acceptance gate (read-only; needs human gradings)
+hidden-gems validation-status --root . --db state/history.sqlite3 \
+  --gradings docs/validation/gradings.yml \
+  --markdown docs/validation/v1-acceptance.md
+```
+
+The acceptance gate never fabricates cycles: it stays
+`PENDING_MULTI_DAY_VALIDATION` until seven consecutive real daily runs exist and
+every notified repository has been graded `GOOD`/`MAYBE`/`BAD`, with a Useful
+Discovery Rate of at least 70%. Evidence so far is recorded in
+[docs/validation/](docs/validation/).
+
 Implementation is developed in an isolated worktree/branch and is validated
 before any merge or push.
