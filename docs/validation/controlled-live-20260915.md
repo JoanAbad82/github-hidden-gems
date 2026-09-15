@@ -18,7 +18,7 @@ publication and email delivery are `PENDING_USER_VALIDATION`.
 
 | Step | Command | Result |
 |---|---|---|
-| Offline suite | `.venv/Scripts/python.exe -m pytest -m "not live" -q` | `445 passed, 3 deselected` |
+| Offline suite | `.venv/Scripts/python.exe -m pytest -m "not live" -q` | `456 passed, 3 deselected` (re-verified at final HEAD `4149ead`) |
 | Config validation | `hidden-gems validate-config --root .` | `RESULT=CONFIG_VALID` (exit 0) |
 | Schema migration | `hidden-gems migrate --root . --db state/history.sqlite3` | `RESULT=DB_MIGRATED` (exit 0) |
 | DB integrity | `hidden-gems db-check --root . --db state/history.sqlite3` | `RESULT=DB_VALID` (exit 0) |
@@ -60,7 +60,7 @@ ZONE=YELLOW
 
 Findings from the probe:
 
-- The unauthenticated search bucket is 10 requests/hour; a real daily run must
+- The unauthenticated search bucket is 10 requests/minute; a real daily run must
   use `GITHUB_TOKEN` (available in Actions as `secrets.GITHUB_TOKEN`), where the
   search bucket is 30/minute.
 - The client's rate-zone logic correctly reported `YELLOW` from live headers,

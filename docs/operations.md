@@ -56,6 +56,23 @@ There is no external mail infrastructure: email delivery is GitHub's.
 
 ## 5. Running modes
 
+### First deployment prerequisites
+
+Before the first production run:
+
+1. Create the `state` branch in the repository (it holds `history.sqlite3`,
+   `state_manifest.json` and the rotated `backups/`). The discovery workflow
+   checks it out at `ref: state`; without the branch the run has no history and
+   the live persist step has nowhere to push. `hidden-gems migrate` creates the
+   database schema on first use, so an empty initial commit on the branch is
+   enough.
+2. Keep `HIDDEN_GEMS_SCHEDULED_LIVE` unset (or `false`) so scheduled runs stay
+   in dry-run until the controlled-live gate has been reviewed.
+3. Add the `DEEPSEEK_API_KEY` Actions secret only if semantic enrichment is
+   wanted; `LLM_ENABLED=false` keeps the whole pipeline working without it.
+4. Configure `Watch → Custom → Issues` on the account that owns the discovery
+   Issue (section 4) — that is what turns the Issue into an email notification.
+
 - **Offline/unit**: `python -m pytest -m "not live"` — no network, no secrets.
 - **Manual dry-run** (recommended for validation): in the Actions UI use
   `Run workflow` and keep `dry_run = true`.
