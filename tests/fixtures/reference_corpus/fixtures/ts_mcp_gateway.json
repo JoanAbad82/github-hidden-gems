@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 202,
+    "full_name": "tinyco/mcp-bridge",
+    "description": "Small MCP gateway that exposes local tools to LLM agents with schema validation",
+    "stars": 61,
+    "created_at": "2026-08-28T00:00:00Z",
+    "updated_at": "2026-09-14T00:00:00Z",
+    "primary_language": "TypeScript",
+    "topics": ["ai", "agents", "tool-calling", "mcp"],
+    "size_kb": 260
+  },
+  "evidence": {
+    "readme_text": "# mcp-bridge\n\nExpose local tools to LLM agents through tool calling with runtime schema validation.\n\n## Install\nnpm install mcp-bridge\n\n## Quickstart\nSee examples/quickstart.ts.",
+    "tree_paths": ["src/index.ts", "src/server.ts", "src/schema.ts", "tests/server.test.ts", "examples/quickstart.ts", "docs/usage.md", "package.json", "LICENSE"],
+    "manifest_names": ["package.json"]
+  },
+  "light": {
+    "areas": ["ai_agents", "automation"],
+    "activity_level": "STRONG",
+    "activity_age_days": 0,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "docs:readme", "docs:install", "docs:examples", "tests:unit", "tests:ci", "usability:install", "usability:quickstart", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:ai-agents", "readme:tool-calling"],
+    "originality_evidence": ["differentiated:local-tool-bridge"]
+  }
+}

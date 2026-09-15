@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 201,
+    "full_name": "smalllabs/shard-stream",
+    "description": "Bounded-memory stream processor with backpressure for data pipelines",
+    "stars": 34,
+    "created_at": "2026-08-20T00:00:00Z",
+    "updated_at": "2026-09-13T00:00:00Z",
+    "primary_language": "Rust",
+    "topics": ["data", "streaming", "data-pipeline"],
+    "size_kb": 320
+  },
+  "evidence": {
+    "readme_text": "# shard-stream\n\nBounded-memory stream processing with backpressure.\n\n## Install\ncargo add shard-stream\n\n## Usage\nSee examples/pipeline.rs for a full data pipeline.",
+    "tree_paths": ["src/lib.rs", "src/processor.rs", "src/backpressure.rs", "tests/pipeline.rs", "examples/pipeline.rs", "docs/design.md", "Cargo.toml", "LICENSE"],
+    "manifest_names": ["Cargo.toml"]
+  },
+  "light": {
+    "areas": ["data", "automation"],
+    "activity_level": "STRONG",
+    "activity_age_days": 1,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "docs:readme", "docs:install", "docs:examples", "tests:unit", "tests:integration", "usability:install", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:data", "readme:data-pipeline"],
+    "originality_evidence": ["differentiated:backpressure-design"]
+  }
+}

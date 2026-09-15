@@ -1,0 +1,18 @@
+{
+  "candidate": {
+    "github_repo_id": 109,
+    "full_name": "acme/ssh-agent-helper",
+    "description": "Small helper to manage ssh-agent keys and user agents",
+    "stars": 15,
+    "created_at": "2026-08-10T00:00:00Z",
+    "updated_at": "2026-09-01T00:00:00Z",
+    "primary_language": "Go",
+    "topics": ["ssh", "security"],
+    "size_kb": 90
+  },
+  "evidence": {
+    "readme_text": "# ssh-agent-helper\n\nWrap ssh-agent and forward keys for the local user agent.",
+    "tree_paths": ["main.go", "agent.go", "README.md"],
+    "manifest_names": ["go.mod"]
+  }
+}

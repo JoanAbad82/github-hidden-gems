@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 110,
+    "full_name": "newuser/fast-html-extractor",
+    "description": "Fast HTML to structured JSON extractor with a declarative schema",
+    "stars": 0,
+    "created_at": "2026-09-02T00:00:00Z",
+    "updated_at": "2026-09-13T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["scraping", "extraction", "data"],
+    "size_kb": 250
+  },
+  "evidence": {
+    "readme_text": "# fast-html-extractor\n\nExtract structured data from HTML pages using declarative schemas.\n\n## Install\npip install fast-html-extractor\n\n## Usage\nSee examples/ for end-to-end extraction pipelines.",
+    "tree_paths": ["src/fast_html_extractor/__init__.py", "src/fast_html_extractor/extract.py", "src/fast_html_extractor/schema.py", "tests/test_extract.py", "examples/pipeline.py", "docs/usage.md", "pyproject.toml", "LICENSE"],
+    "manifest_names": ["pyproject.toml"]
+  },
+  "light": {
+    "areas": ["data"],
+    "activity_level": "STRONG",
+    "activity_age_days": 2,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "structure:packaging", "docs:readme", "docs:install", "docs:examples", "tests:unit", "usability:install", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:data-extraction", "readme:declarative-schema"],
+    "originality_evidence": ["differentiated:declarative-schema"]
+  }
+}

@@ -1,0 +1,187 @@
+corpus_version: 1
+# V1 acceptance: Useful Discovery Rate = (GOOD + MAYBE notified) / all notified.
+minimum_useful_discovery_rate: 0.70
+# Every >=85 finding is reviewed individually; a BAD case at >=85 blocks acceptance.
+exceptional_false_positive_blocks_acceptance: true
+
+cases:
+  # --- zero-visibility real projects (GOOD) ---
+  - id: zero_star_data_extractor
+    fixture: fixtures/zero_star_data_extractor.json
+    class: GOOD
+    hard_filter: PASS
+    score_band: [70, 100]
+    expect_notified: true
+    rationale: "Genuinely useful declarative HTML extractor, zero stars, 12 days old."
+
+  - id: single_contributor_backtester
+    fixture: fixtures/single_contributor_backtester.json
+    class: GOOD
+    hard_filter: PASS
+    score_band: [70, 100]
+    expect_notified: true
+    rationale: "Event-driven backtesting engine with tests and docs; one contributor is not a reason to reject."
+
+  - id: new_agent_memory_graph
+    fixture: fixtures/new_agent_memory_graph.json
+    class: GOOD
+    hard_filter: PASS
+    score_band: [70, 100]
+    expect_notified: true
+    rationale: "Fresh TypeScript memory layer for agents with tests and install docs."
+
+  - id: rust_stream_processor
+    fixture: fixtures/rust_stream_processor.json
+    class: GOOD
+    hard_filter: PASS
+    score_band: [70, 100]
+    expect_notified: true
+    rationale: "Bounded-memory stream processor published as a library with integration tests."
+
+  - id: ts_mcp_gateway
+    fixture: fixtures/ts_mcp_gateway.json
+    class: GOOD
+    hard_filter: PASS
+    score_band: [70, 100]
+    expect_notified: true
+    rationale: "Small MCP gateway with tool calling, schema validation and examples."
+
+  - id: go_automation_scheduler
+    fixture: fixtures/go_automation_scheduler.json
+    class: GOOD
+    hard_filter: PASS
+    score_band: [70, 100]
+    expect_notified: true
+    rationale: "Self-hosted job scheduler with retries and observability."
+
+  - id: python_doc_parser
+    fixture: fixtures/python_doc_parser.json
+    class: GOOD
+    hard_filter: PASS
+    score_band: [70, 100]
+    expect_notified: true
+    rationale: "Document parsing toolkit with structured JSON output and a test suite."
+
+  - id: old_reactivated_rag
+    fixture: fixtures/old_reactivated_rag.json
+    class: MAYBE
+    hard_filter: PASS
+    score_band: [50, 69]
+    expect_notified: false
+    rationale: "Three-year-old retrieval project reactivated with a real release, but novelty is 0 by SPEC and the deterministic path stays below the threshold; it is stored for reconsideration instead of being notified."
+
+  # --- plausible but unproven (MAYBE) ---
+  - id: solo_rag_toolkit
+    fixture: fixtures/solo_rag_toolkit.json
+    class: MAYBE
+    hard_filter: PASS
+    score_band: [40, 69]
+    expect_notified: false
+    rationale: "Early-stage RAG toolkit: real code but thin documentation."
+
+  - id: minimal_but_useful_cli
+    fixture: fixtures/minimal_but_useful_cli.json
+    class: MAYBE
+    hard_filter: REJECT_IRRELEVANT
+    expect_notified: false
+    rationale: "Tiny CLI with a genuinely useful capability but no tests yet."
+
+  - id: prompt_injection_readme
+    fixture: fixtures/prompt_injection_readme.json
+    class: MAYBE
+    hard_filter: PASS
+    score_band: [40, 69]
+    expect_notified: false
+    rationale: "Real automation tool whose README contains prompt-injection text; the text is untrusted evidence only and must never inflate the score or bypass the filter."
+
+  - id: duplicate_multi_query
+    fixture: fixtures/duplicate_multi_query.json
+    class: BAD
+    hard_filter: PASS
+    score_band: [0, 69]
+    expect_notified: false
+    rationale: "Discovered through three queries but minimal and derivative: no notification."
+
+  # --- noise (BAD) ---
+  - id: archived_tool
+    fixture: fixtures/archived_tool.json
+    class: BAD
+    hard_filter: REJECT_ARCHIVED
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "Archived repositories are never gems."
+
+  - id: trivial_fork
+    fixture: fixtures/trivial_fork.json
+    class: BAD
+    hard_filter: REJECT_FORK
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "Forking a popular framework is not a discovery."
+
+  - id: empty_shell
+    fixture: fixtures/empty_shell.json
+    class: BAD
+    hard_filter: REJECT_EMPTY
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "Empty repository."
+
+  - id: tutorial_notebooks
+    fixture: fixtures/tutorial_notebooks.json
+    class: BAD
+    hard_filter: REJECT_TUTORIAL
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "Notebook-only tutorial, no library surface."
+
+  - id: explicit_template
+    fixture: fixtures/explicit_template.json
+    class: BAD
+    hard_filter: REJECT_TEMPLATE
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "GitHub marks it as a template."
+
+  - id: boilerplate_starter
+    fixture: fixtures/boilerplate_starter.json
+    class: BAD
+    hard_filter: REJECT_TEMPLATE
+    accept_codes: [REJECT_TEMPLATE, REJECT_IRRELEVANT]
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "Boilerplate scaffold with placeholder code."
+
+  - id: demo_app
+    fixture: fixtures/demo_app.json
+    class: BAD
+    hard_filter: REJECT_DEMO
+    accept_codes: [REJECT_DEMO, REJECT_IRRELEVANT]
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "Conference demo, explicitly not for production."
+
+  - id: marketing_spam
+    fixture: fixtures/marketing_spam.json
+    class: BAD
+    hard_filter: REJECT_SPAM
+    accept_codes: [REJECT_SPAM, REJECT_EMPTY]
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "Promotional superlatives with no implementation."
+
+  - id: ssh_agent_false_positive
+    fixture: fixtures/ssh_agent_false_positive.json
+    class: BAD
+    hard_filter: REJECT_IRRELEVANT
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "The word 'agent' alone must never make a repository relevant."
+
+  - id: huge_popular_excellent
+    fixture: fixtures/huge_popular_excellent.json
+    class: BAD
+    hard_filter: PASS
+    score_band: [0, 100]
+    expect_notified: false
+    rationale: "Excellent but with more than 2,000 stars: not notifiable in V1 (visibility 0)."

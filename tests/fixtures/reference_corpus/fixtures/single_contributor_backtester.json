@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 111,
+    "full_name": "solo/backtest-lab",
+    "description": "Event-driven backtesting engine with pluggable market data adapters",
+    "stars": 7,
+    "created_at": "2026-08-05T00:00:00Z",
+    "updated_at": "2026-09-12T00:00:00Z",
+    "primary_language": "Rust",
+    "topics": ["trading", "backtesting", "market-data", "data"],
+    "size_kb": 400
+  },
+  "evidence": {
+    "readme_text": "# backtest-lab\n\nEvent-driven backtesting with adapters for market data feeds.\n\n## Install\ncargo add backtest-lab\n\n## Usage\nSee examples/ for a full strategy backtest.",
+    "tree_paths": ["src/lib.rs", "src/engine.rs", "src/adapters/mod.rs", "tests/engine.rs", "examples/strategy.rs", "docs/design.md", "Cargo.toml", "LICENSE"],
+    "manifest_names": ["Cargo.toml"]
+  },
+  "light": {
+    "areas": ["trading", "data"],
+    "activity_level": "STRONG",
+    "activity_age_days": 3,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "structure:packaging", "docs:readme", "docs:install", "docs:examples", "tests:unit", "tests:integration", "usability:install", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:backtesting", "readme:market-data"],
+    "originality_evidence": ["differentiated:event-driven-adapters"]
+  }
+}

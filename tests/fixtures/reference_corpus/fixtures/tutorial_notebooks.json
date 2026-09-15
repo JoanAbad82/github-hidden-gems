@@ -1,0 +1,18 @@
+{
+  "candidate": {
+    "github_repo_id": 104,
+    "full_name": "acme/llm-agents-tutorial",
+    "description": "Step by step tutorial to learn how to build your first LLM agent",
+    "stars": 12,
+    "created_at": "2026-08-20T00:00:00Z",
+    "updated_at": "2026-09-05T00:00:00Z",
+    "primary_language": "Jupyter Notebook",
+    "topics": ["tutorial", "llm", "agents"],
+    "size_kb": 900
+  },
+  "evidence": {
+    "readme_text": "# LLM agents tutorial\n\nFollow this course, step by step, to learn how to build agents.\nThis repository is a learning exercise, not a library.",
+    "tree_paths": ["01_intro.ipynb", "02_tools.ipynb", "README.md"],
+    "manifest_names": []
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "candidate": {
+    "github_repo_id": 106,
+    "full_name": "acme/nextjs-automation-starter",
+    "description": "Boilerplate starter kit for automation dashboards",
+    "stars": 8,
+    "created_at": "2026-08-01T00:00:00Z",
+    "updated_at": "2026-08-20T00:00:00Z",
+    "primary_language": "TypeScript",
+    "topics": ["boilerplate", "starter", "automation"],
+    "size_kb": 300
+  },
+  "evidence": {
+    "readme_text": "# Starter kit\n\nA boilerplate scaffold: clone it, rename the placeholders and build your own app.",
+    "tree_paths": ["src/app/page.tsx", "src/lib/placeholder.ts", "README.md"],
+    "manifest_names": ["package.json"]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "candidate": {
+    "github_repo_id": 102,
+    "full_name": "someone/langchain-fork",
+    "description": "Fork of a popular agent framework",
+    "stars": 0,
+    "created_at": "2026-09-01T00:00:00Z",
+    "updated_at": "2026-09-02T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["ai", "agents"],
+    "is_fork": true,
+    "size_kb": 4000
+  },
+  "evidence": {"tree_paths": ["libs/langchain/agents.py", "README.md"], "manifest_names": ["pyproject.toml"]}
+}

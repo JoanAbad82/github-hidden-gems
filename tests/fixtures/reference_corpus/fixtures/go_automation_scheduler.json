@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 203,
+    "full_name": "devops-labs/chronos-lite",
+    "description": "Self-hosted job scheduler with retries, backoff and Prometheus metrics",
+    "stars": 148,
+    "created_at": "2026-07-15T00:00:00Z",
+    "updated_at": "2026-09-11T00:00:00Z",
+    "primary_language": "Go",
+    "topics": ["automation", "scheduler", "self-hosted", "observability"],
+    "size_kb": 700
+  },
+  "evidence": {
+    "readme_text": "# chronos-lite\n\nSelf-hosted job scheduler: cron, retries with backoff, Prometheus metrics.\n\n## Install\nSee docs/deploy.md.\n\n## Usage\nchronos-lite --config job.yaml",
+    "tree_paths": ["cmd/chronos/main.go", "internal/scheduler/scheduler.go", "internal/retry/retry.go", "internal/metrics/metrics.go", "tests/scheduler_test.go", "docs/deploy.md", "go.mod", "LICENSE"],
+    "manifest_names": ["go.mod"]
+  },
+  "light": {
+    "areas": ["automation", "data"],
+    "activity_level": "STRONG",
+    "activity_age_days": 3,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "structure:packaging", "docs:readme", "docs:install", "docs:api", "tests:unit", "tests:integration", "tests:ci", "usability:install", "usability:quickstart", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:automation", "readme:job-scheduler"],
+    "originality_evidence": ["differentiated:single-binary-scheduler", "differentiated:backoff-policies"]
+  }
+}

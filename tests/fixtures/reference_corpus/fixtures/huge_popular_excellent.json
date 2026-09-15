@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 210,
+    "full_name": "bigorg/agent-platform",
+    "description": "Widely adopted multi-agent orchestration platform with tool calling",
+    "stars": 8400,
+    "created_at": "2024-02-01T00:00:00Z",
+    "updated_at": "2026-09-14T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["ai", "agents", "multi-agent", "tool-calling"],
+    "size_kb": 12000
+  },
+  "evidence": {
+    "readme_text": "# agent-platform\n\nMulti-agent orchestration platform with tool calling, memory and observability.",
+    "tree_paths": ["src/agent_platform/core.py", "src/agent_platform/tools.py", "tests/test_core.py", "docs/guide.md", "pyproject.toml", "LICENSE"],
+    "manifest_names": ["pyproject.toml"]
+  },
+  "light": {
+    "areas": ["ai_agents", "automation", "data", "trading"],
+    "activity_level": "STRONG",
+    "activity_age_days": 0,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "structure:packaging", "docs:readme", "docs:install", "docs:examples", "docs:api", "tests:unit", "tests:integration", "tests:ci", "usability:install", "usability:quickstart", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:ai-agents", "readme:multi-agent"],
+    "originality_evidence": ["differentiated:platform"]
+  }
+}

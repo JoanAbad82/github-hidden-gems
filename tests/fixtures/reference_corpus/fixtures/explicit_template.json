@@ -1,0 +1,15 @@
+{
+  "candidate": {
+    "github_repo_id": 105,
+    "full_name": "acme/python-agent-template",
+    "description": "Template repository to start a new agent project",
+    "stars": 30,
+    "created_at": "2026-07-01T00:00:00Z",
+    "updated_at": "2026-08-01T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["template", "llm"],
+    "is_template": true,
+    "size_kb": 120
+  },
+  "evidence": {"tree_paths": ["src/{{project_name}}/main.py", "README.md"], "manifest_names": ["pyproject.toml"]}
+}

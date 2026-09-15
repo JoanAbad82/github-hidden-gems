@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 209,
+    "full_name": "copypaste/agent-wrapper",
+    "description": "Wrapper around an agent framework",
+    "stars": 2,
+    "created_at": "2026-09-05T00:00:00Z",
+    "updated_at": "2026-09-06T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["agents"],
+    "size_kb": 12
+  },
+  "evidence": {
+    "readme_text": "# agent-wrapper\n\nA tiny wrapper.",
+    "tree_paths": ["wrapper.py", "README.md"],
+    "manifest_names": []
+  },
+  "light": {
+    "areas": ["ai_agents"],
+    "activity_level": "WEAK",
+    "activity_age_days": 9,
+    "quality_signals": ["implementation:core"],
+    "negative_signals": ["no_tests", "no_license", "minimal_implementation"],
+    "relevance_evidence": ["topic:agents"],
+    "originality_evidence": []
+  }
+}

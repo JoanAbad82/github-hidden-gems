@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 112,
+    "full_name": "labs/agent-memory-graph",
+    "description": "Graph-based memory layer for LLM agents with tool calling support",
+    "stars": 2,
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-14T00:00:00Z",
+    "primary_language": "TypeScript",
+    "topics": ["ai", "agents", "memory", "llm", "data"],
+    "size_kb": 180
+  },
+  "evidence": {
+    "readme_text": "# agent-memory-graph\n\nPersistent memory graph for LLM agents. Supports tool calling and retrieval.\n\n## Install\nnpm install agent-memory-graph\n\n## Usage\nSee examples/.",
+    "tree_paths": ["src/index.ts", "src/graph.ts", "src/retrieval.ts", "tests/graph.test.ts", "examples/agents.ts", "docs/design.md", "package.json", "LICENSE"],
+    "manifest_names": ["package.json"]
+  },
+  "light": {
+    "areas": ["ai_agents", "data"],
+    "activity_level": "STRONG",
+    "activity_age_days": 1,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "structure:packaging", "docs:readme", "docs:install", "docs:examples", "tests:unit", "usability:install", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:ai-agents", "readme:tool-calling"],
+    "originality_evidence": ["differentiated:graph-memory"]
+  }
+}

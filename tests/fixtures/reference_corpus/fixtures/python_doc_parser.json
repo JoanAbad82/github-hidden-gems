@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 204,
+    "full_name": "datafolk/tabular-docs",
+    "description": "Document parsing library that turns messy PDFs and office files into structured JSON tables",
+    "stars": 87,
+    "created_at": "2026-08-01T00:00:00Z",
+    "updated_at": "2026-09-09T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["data", "extraction", "document-parsing", "structured-output"],
+    "size_kb": 540
+  },
+  "evidence": {
+    "readme_text": "# tabular-docs\n\nTurn PDFs and office documents into structured JSON tables.\n\n## Install\npip install tabular-docs\n\n## Usage\nSee docs/quickstart.md.",
+    "tree_paths": ["src/tabular_docs/__init__.py", "src/tabular_docs/extract.py", "src/tabular_docs/schema.py", "tests/test_extract.py", "tests/test_schema.py", "docs/quickstart.md", "pyproject.toml", "LICENSE"],
+    "manifest_names": ["pyproject.toml"]
+  },
+  "light": {
+    "areas": ["data", "ai_agents"],
+    "activity_level": "STRONG",
+    "activity_age_days": 5,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "structure:packaging", "docs:readme", "docs:install", "docs:api", "tests:unit", "usability:install", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:data-extraction", "readme:structured-output"],
+    "originality_evidence": ["differentiated:schema-first-parsing"]
+  }
+}

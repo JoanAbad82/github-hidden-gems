@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 207,
+    "full_name": "lonedev/csv-diff-pro",
+    "description": "CLI that diffs large CSV files by key with column-level output",
+    "stars": 11,
+    "created_at": "2026-08-25T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["data", "cli", "csv"],
+    "size_kb": 45
+  },
+  "evidence": {
+    "readme_text": "# csv-diff-pro\n\nDiff large CSV files by key.\n\n## Install\npip install csv-diff-pro",
+    "tree_paths": ["csv_diff_pro/__init__.py", "csv_diff_pro/cli.py", "README.md"],
+    "manifest_names": ["pyproject.toml"]
+  },
+  "light": {
+    "areas": ["data"],
+    "activity_level": "MEDIUM",
+    "activity_age_days": 6,
+    "quality_signals": ["implementation:core", "structure:packaging", "docs:readme", "docs:install", "usability:install"],
+    "negative_signals": ["no_tests"],
+    "relevance_evidence": ["topic:data", "readme:csv-diff"],
+    "originality_evidence": ["differentiated:key-based-diff"]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "candidate": {
+    "github_repo_id": 108,
+    "full_name": "acme/ai-money-machine",
+    "description": "REVOLUTIONARY 10x AI trading bot !! GUARANTEED PASSIVE INCOME - join now",
+    "stars": 3,
+    "created_at": "2026-09-01T00:00:00Z",
+    "updated_at": "2026-09-03T00:00:00Z",
+    "primary_language": null,
+    "topics": [],
+    "size_kb": 4
+  },
+  "evidence": {
+    "readme_text": "# Best ever\n\nBuy the course at the link below. World's best money machine, guaranteed 10x returns.",
+    "tree_paths": ["README.md"],
+    "manifest_names": []
+  }
+}

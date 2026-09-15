@@ -1,0 +1,27 @@
+{
+  "candidate": {
+    "github_repo_id": 205,
+    "full_name": "retrolab/rag-index",
+    "description": "Retrieval index for RAG pipelines with disk-backed persistence",
+    "stars": 210,
+    "created_at": "2023-04-02T00:00:00Z",
+    "updated_at": "2026-09-12T00:00:00Z",
+    "primary_language": "Python",
+    "topics": ["rag", "retrieval", "embeddings", "data"],
+    "size_kb": 950
+  },
+  "evidence": {
+    "readme_text": "# rag-index\n\nDisk-backed retrieval index for RAG pipelines. v0.4 adds hybrid search.\n\n## Install\npip install rag-index",
+    "tree_paths": ["src/rag_index/index.py", "src/rag_index/hybrid.py", "tests/test_index.py", "docs/hybrid-search.md", "pyproject.toml", "LICENSE"],
+    "manifest_names": ["pyproject.toml"]
+  },
+  "light": {
+    "areas": ["ai_agents", "data"],
+    "activity_level": "STRONG",
+    "activity_age_days": 2,
+    "quality_signals": ["implementation:core", "implementation:modules", "structure:src", "docs:readme", "docs:api", "tests:unit", "hygiene:license"],
+    "negative_signals": [],
+    "relevance_evidence": ["topic:rag", "readme:retrieval"],
+    "originality_evidence": []
+  }
+}
