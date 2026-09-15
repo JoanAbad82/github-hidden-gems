@@ -10,5 +10,3 @@ _RUN_OUTPUT/
 .worktrees/
 state/
 backups/
-.pytest_cache/
-
