@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/JoanAbad82/github-hidden-gems/state_manifest.schema.json",
+  "title": "STATE_MANIFEST_V1",
+  "description": "Manifest stored next to history.sqlite3 on the `state` branch. Contains no secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "state_timestamp"],
+  "properties": {
+    "schema_version": {"const": "STATE_MANIFEST_V1"},
+    "state_timestamp": {"type": "string", "format": "date-time"},
+    "db_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "db_bytes": {"type": "integer", "minimum": 0},
+    "schema_migration_version": {"type": "integer", "minimum": 0},
+    "last_run_id": {"type": ["string", "null"]},
+    "last_run_result": {"type": ["string", "null"]},
+    "report_state": {
+      "enum": ["IDLE", "PENDING_REPORT", "REPORT_PUBLISHED"]
+    },
+    "pending_report_fingerprint": {"type": ["string", "null"]},
+    "backups": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}
