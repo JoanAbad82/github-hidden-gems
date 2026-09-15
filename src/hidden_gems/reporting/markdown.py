@@ -8,7 +8,7 @@ from typing import Sequence
 from ..config import AppConfig
 from ..models import NOTIFICATION_STATUS_UPDATE, SelectedFinding, RunSummary
 from ..security.sanitization import sanitize_inline, sanitize_markdown_text
-from ..scoring.hidden_gem_v1 import EXCEPTIONAL_THRESHOLD, NOTIFICATION_THRESHOLD
+from ..scoring.hidden_gem_v1 import EXCEPTIONAL_THRESHOLD
 from .fingerprints import report_fingerprint
 
 DEFAULT_LABELS = ("discovery-report",)
@@ -101,13 +101,12 @@ def build_report(
     run_date = _run_date(run_summary)
     score_version = ordered[0].score.score_version
     fingerprint = report_fingerprint(ordered, run_date, score_version)
-    threshold = config.scoring.notification_threshold if config else NOTIFICATION_THRESHOLD
+    noun = "repository" if len(ordered) == 1 else "repositories"
 
     lines = [
         f"# GitHub Hidden Gems — {run_date.isoformat()}",
         "",
-        f"{len(ordered)} repository(ies) reached the notification threshold "
-        f"(score >= {threshold}).",
+        f"{len(ordered)} {noun} selected for this report.",
         "",
     ]
     for index, finding in enumerate(ordered, start=1):
