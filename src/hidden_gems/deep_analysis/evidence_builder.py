@@ -158,6 +158,7 @@ def build_evidence(
     return {
         "repo": repo.full_name,
         "github_repo_id": repo.github_repo_id,
+        "relevant_content_hash": light.relevant_content_hash,
         "observed": observed,
         "inferred": inferred,
         "unknown": unknown,
