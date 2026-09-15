@@ -1,0 +1,78 @@
+config_version: "1.0.0"
+
+# Discovery Engine (SPEC_V1 section 3).
+preferred_languages:
+  - Python
+  - TypeScript
+  - JavaScript
+  - Go
+  - Rust
+
+# Priority temporal windows, in days.
+novelty_windows_days: [15, 30, 60, 90, 180]
+activity_windows_days: [15, 30]
+
+# Priority star bands for discovery queries and visibility scoring.
+star_bands:
+  - [0, 24]
+  - [25, 99]
+  - [100, 249]
+  - [250, 499]
+exception_star_band: [500, 2000]
+primary_star_limit: 499
+
+# Query construction budget: which star bands generate search queries.
+query_star_bands:
+  - [0, 24]
+  - [25, 99]
+  - [100, 499]
+query_created_within_days: 15
+query_pushed_within_days: 15
+results_per_query: 50
+
+# Query templates. Placeholders: {term} {term_a} {term_b} {since_date} {star_range}
+query_templates:
+  new_repository: "{term} created:>={since_date} stars:{star_range}"
+  recently_active: "{term} pushed:>={since_date} stars:{star_range}"
+  topic_search: "{term} in:name,description,readme stars:{star_range}"
+  intersection: "{term_a} {term_b} in:name,description,readme stars:{star_range}"
+
+core_templates:
+  - topic_search
+  - new_repository
+  - recently_active
+
+# Rotating (secondary) query groups. The group is chosen deterministically by UTC date.
+rotating_groups:
+  - id: ROT_1
+    template: intersection
+    area_pairs:
+      - [ai_agents, automation]
+      - [data, trading]
+  - id: ROT_2
+    template: intersection
+    area_pairs:
+      - [ai_agents, data]
+      - [automation, trading]
+  - id: ROT_3
+    template: intersection
+    area_pairs:
+      - [ai_agents, trading]
+      - [automation, data]
+
+# Terms that must never drive a dedicated solo search (Bitcoin/crypto is not an
+# independent area in V1; crypto work is only relevant through the four areas).
+forbidden_solo_query_terms:
+  - bitcoin
+  - cryptocurrency
+  - crypto
+  - nft
+  - defi
+
+relationship_depth: 1
+max_relationship_seeds: 20
+relationship_sources:
+  - same_owner
+  - readme_link
+  - dependency
+  - related_project_link

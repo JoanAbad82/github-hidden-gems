@@ -1,0 +1,68 @@
+config_version: "1.0.0"
+
+score_version: HIDDEN_GEM_SCORE_V1
+
+weights:
+  relevance: 20
+  quality: 20
+  activity: 20
+  visibility: 15
+  novelty: 10
+  originality: 10
+  intersection: 5
+
+# Visibility sub-score by star count (upper bound, points). >2000 is not notifiable.
+visibility_bands:
+  - {max_stars: 24, points: 15}
+  - {max_stars: 99, points: 13}
+  - {max_stars: 249, points: 10}
+  - {max_stars: 499, points: 7}
+  - {max_stars: 999, points: 4}
+  - {max_stars: 1499, points: 3}
+  - {max_stars: 2000, points: 1}
+
+# Novelty sub-score by repository age in days.
+novelty_bands:
+  - {max_age_days: 15, points: 10}
+  - {max_age_days: 30, points: 9}
+  - {max_age_days: 60, points: 7}
+  - {max_age_days: 90, points: 5}
+  - {max_age_days: 180, points: 2}
+
+# Functional thematic intersection points by number of detected areas.
+intersection_points:
+  "1": 0
+  "2": 2
+  "3": 4
+  "4": 5
+
+# Activity sub-score derived from activity level and relevant-activity age.
+activity_rules:
+  strong_recent_days: 15
+  strong_recent_points: 20
+  medium_recent_points: 16
+  moderate_recent_days: 30
+  moderate_points: 12
+  weak_recent_points: 7
+  stale_points: 2
+  no_evidence_points: 0
+
+# Quality sub-score composition (0..20 total).
+quality_rules:
+  implementation_max: 6
+  structure_max: 4
+  docs_max: 4
+  tests_max: 3
+  usability_max: 2
+  hygiene_max: 1
+
+# Preliminary relevance/originality caps before deep analysis.
+preliminary_relevance_max: 14
+preliminary_originality_max: 0
+no_llm_originality_max: 4
+
+notification_threshold: 70
+exceptional_threshold: 85
+exception_star_threshold: 80
+renotification_score_delta: 10
+preliminary_prune_threshold: 70

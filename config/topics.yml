@@ -1,0 +1,131 @@
+config_version: "1.0.0"
+
+# Four areas with equal base importance (SPEC_V1 section 1 and 14).
+areas:
+  - id: ai_agents
+    label: "AI / agents"
+    weight: 25
+    search_terms:
+      - '"ai agent"'
+      - '"llm agent"'
+      - '"agent framework"'
+      - '"multi-agent"'
+      - '"tool calling" llm'
+      - '"rag" retrieval'
+    keywords:
+      - agent
+      - agents
+      - llm
+      - "language model"
+      - rag
+      - "tool calling"
+      - "function calling"
+      - embedding
+      - "vector store"
+      - prompt
+      - orchestration
+    dependencies:
+      - langchain
+      - llama-index
+      - autogen
+      - crewai
+      - pydantic-ai
+      - openai
+      - anthropic
+      - transformers
+      - vllm
+      - ollama
+
+  - id: automation
+    label: "Automation"
+    weight: 25
+    search_terms:
+      - '"workflow automation"'
+      - '"task automation"'
+      - '"self-hosted" automation'
+      - '"browser automation"'
+      - '"job scheduler"'
+      - '"webhook" automation'
+    keywords:
+      - automation
+      - workflow
+      - scheduler
+      - cron
+      - webhook
+      - "ci/cd"
+      - orchestrate
+      - "self-hosted"
+      - rpa
+      - pipeline
+    dependencies:
+      - n8n
+      - airflow
+      - prefect
+      - temporal
+      - celery
+      - playwright
+      - selenium
+      - ansible
+      - "github-actions"
+
+  - id: data
+    label: "Data extraction / analysis"
+    weight: 25
+    search_terms:
+      - '"data extraction"'
+      - '"web scraping"'
+      - '"html to json"'
+      - '"data pipeline"'
+      - '"document parsing"'
+      - '"dataset analysis"'
+    keywords:
+      - scraping
+      - scraper
+      - parser
+      - extraction
+      - etl
+      - dataframe
+      - analytics
+      - "data pipeline"
+      - "structured output"
+      - ingestion
+    dependencies:
+      - pandas
+      - polars
+      - duckdb
+      - beautifulsoup4
+      - scrapy
+      - lxml
+      - pyspark
+      - apache-arrow
+
+  - id: trading
+    label: "Trading"
+    weight: 25
+    search_terms:
+      - '"algorithmic trading"'
+      - '"backtesting"'
+      - '"market data"'
+      - '"order book"'
+      - '"quantitative trading"'
+      - '"trading bot" backtest'
+    keywords:
+      - trading
+      - backtest
+      - backtesting
+      - "market data"
+      - "order book"
+      - quantitative
+      - broker
+      - portfolio
+      - indicator
+      - exchange
+    dependencies:
+      - ccxt
+      - backtrader
+      - vectorbt
+      - zipline
+      - ta-lib
+      - pandas-ta
+      - ib-insync
+      - alpaca-py
