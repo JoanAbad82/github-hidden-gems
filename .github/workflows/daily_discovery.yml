@@ -1,0 +1,124 @@
+name: daily-discovery
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without publishing a GitHub Issue"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hidden-gems-state-writer
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    name: discovery run
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      issues: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      LLM_ENABLED: ${{ vars.HIDDEN_GEMS_LLM_ENABLED || 'false' }}
+      NOTIFICATION_GITHUB_LOGIN: ${{ vars.NOTIFICATION_GITHUB_LOGIN }}
+      HIDDEN_GEMS_SCHEDULED_LIVE: ${{ vars.HIDDEN_GEMS_SCHEDULED_LIVE || 'false' }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: app
+
+      - name: Checkout state branch
+        uses: actions/checkout@v4
+        with:
+          ref: state
+          path: state
+        continue-on-error: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project
+        working-directory: app
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Resolve run mode
+        id: mode
+        working-directory: app
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            dry="${{ inputs.dry_run }}"
+          elif [ "${HIDDEN_GEMS_SCHEDULED_LIVE}" = "true" ]; then
+            dry="false"
+          else
+            dry="true"
+          fi
+          if [ "$dry" != "true" ] && [ "$dry" != "false" ]; then
+            echo "invalid dry_run value: $dry" >&2
+            exit 2
+          fi
+          echo "dry_run=$dry" >> "$GITHUB_OUTPUT"
+
+      - name: Validate configuration
+        working-directory: app
+        run: hidden-gems validate-config --root .
+
+      - name: Prepare state database
+        working-directory: app
+        run: |
+          mkdir -p state
+          if [ -f ../state/history.sqlite3 ]; then
+            cp ../state/history.sqlite3 state/history.sqlite3
+          fi
+          if [ -f ../state/state_manifest.json ]; then
+            cp ../state/state_manifest.json state/state_manifest.json
+          fi
+          hidden-gems migrate --root . --db state/history.sqlite3
+          hidden-gems db-check --root . --db state/history.sqlite3
+
+      - name: Run discovery
+        working-directory: app
+        env:
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          hidden-gems run --root . --db state/history.sqlite3 \
+            ${DRY_RUN:+--dry-run}
+
+      - name: Verify database integrity
+        working-directory: app
+        run: hidden-gems db-check --root . --db state/history.sqlite3
+
+      - name: Persist state branch
+        if: ${{ steps.mode.outputs.dry_run == 'false' }}
+        working-directory: state
+        run: |
+          set -euo pipefail
+          git config user.name "hidden-gems-bot"
+          git config user.email "hidden-gems-bot@users.noreply.github.com"
+          cp ../app/state/history.sqlite3 history.sqlite3
+          if [ -f ../app/state/state_manifest.json ]; then
+            cp ../app/state/state_manifest.json state_manifest.json
+          fi
+          git add history.sqlite3 state_manifest.json backups
+          if git diff --cached --quiet; then
+            echo "no state change"
+          else
+            git commit -m "state: run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push origin HEAD:state
+          fi
