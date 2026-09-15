@@ -1,0 +1,10 @@
+{
+  "db_bytes": 2719744,
+  "db_sha256": "7acf59627a969f89ced7ee779f49672ffe2d7db67080862138cfa8786a54487a",
+  "last_run_id": "RUN-20260915T202610Z",
+  "last_run_result": "PARTIAL_SUCCESS",
+  "pending_report_fingerprint": null,
+  "report_state": "REPORT_PUBLISHED",
+  "schema_version": "STATE_MANIFEST_V1",
+  "state_timestamp": "2026-09-15T20:33:20Z"
+}
