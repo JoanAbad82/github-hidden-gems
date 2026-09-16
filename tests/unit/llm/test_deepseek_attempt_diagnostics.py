@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx
 
 from hidden_gems.llm.deepseek import DeepSeekProvider
@@ -82,3 +84,9 @@ def test_invalid_json_with_stop_is_distinguished_from_length(app_config, monkeyp
     assert attempts[0]["finish_reason"] == "stop"
     assert attempts[0]["completion_tokens"] == 187
     assert attempts[0]["validation_result"] == "VALIDATION_ERROR"
+
+
+def test_dry_run_workflow_emits_attempt_diagnostics():
+    workflow = Path(".github/workflows/daily_discovery.yml").read_text(encoding="utf-8")
+
+    assert "LLM_ATTEMPTS=" in workflow
