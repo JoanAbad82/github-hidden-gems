@@ -1,10 +1,10 @@
 {
-  "db_bytes": 2719744,
-  "db_sha256": "7acf59627a969f89ced7ee779f49672ffe2d7db67080862138cfa8786a54487a",
-  "last_run_id": "RUN-20260915T202610Z",
+  "db_bytes": 5255168,
+  "db_sha256": "a0d0fdbbf1f92ddb136eec667c610345a803f8d444e60e0cd9dc20efc244cae1",
+  "last_run_id": "RUN-20260916T114014Z",
   "last_run_result": "PARTIAL_SUCCESS",
   "pending_report_fingerprint": null,
   "report_state": "REPORT_PUBLISHED",
   "schema_version": "STATE_MANIFEST_V1",
-  "state_timestamp": "2026-09-15T20:33:20Z"
+  "state_timestamp": "2026-09-16T11:47:37Z"
 }
