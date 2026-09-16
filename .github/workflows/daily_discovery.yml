@@ -103,6 +103,55 @@ jobs:
             hidden-gems run --root . --db state/history.sqlite3 --live
           fi
 
+      - name: Emit dry-run diagnostics
+        if: ${{ steps.mode.outputs.dry_run == 'true' }}
+        working-directory: app
+        run: |
+          python - <<'PY'
+          import json
+          import sqlite3
+
+          def load_json(value, default):
+              if value is None:
+                  return default
+              try:
+                  return json.loads(value)
+              except (TypeError, ValueError):
+                  return default
+
+          def sanitize_error(value):
+              text = " ".join(str(value or "unknown").split())[:320]
+              if text.startswith("llm:"):
+                  return text
+              parts = text.split(":")
+              return ":".join(parts[:3])
+
+          with sqlite3.connect("state/history.sqlite3") as connection:
+              row = connection.execute(
+                  "SELECT run_id, result, errors, usage FROM runs "
+                  "WHERE dry_run = 1 ORDER BY started_at DESC LIMIT 1"
+              ).fetchone()
+
+          if row is None:
+              raise SystemExit("DRY_RUN_DIAGNOSTICS_ERROR=no_dry_run_row")
+
+          run_id, result, errors_raw, usage_raw = row
+          errors = load_json(errors_raw, [])
+          usage = load_json(usage_raw, {})
+          safe_errors = [sanitize_error(value) for value in errors] if isinstance(errors, list) else []
+
+          print(f"DRY_RUN_DIAGNOSTICS_RUN_ID={run_id}")
+          print(f"DRY_RUN_DIAGNOSTICS_RESULT={result}")
+          print("DRY_RUN_DIAGNOSTICS_ERRORS=" + json.dumps(safe_errors, ensure_ascii=True))
+          print(f"LLM_CALLS_MADE={int(usage.get('calls_made', 0) or 0)}")
+          print(f"LLM_INPUT_TOKENS={int(usage.get('input_tokens', 0) or 0)}")
+          print(f"LLM_OUTPUT_TOKENS={int(usage.get('output_tokens', 0) or 0)}")
+          print(f"LLM_COST={float(usage.get('cost', 0.0) or 0.0):.6f}")
+          print(f"LLM_CACHE_HITS={int(usage.get('cache_hits', 0) or 0)}")
+          print(f"LLM_FAILURES={int(usage.get('failures', 0) or 0)}")
+          print("LLM_REASONS=" + json.dumps(usage.get("reasons", {}), ensure_ascii=True, sort_keys=True))
+          PY
+
       - name: Verify database integrity
         working-directory: app
         run: hidden-gems db-check --root . --db state/history.sqlite3
