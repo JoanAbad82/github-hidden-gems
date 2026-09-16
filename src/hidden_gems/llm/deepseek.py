@@ -136,6 +136,7 @@ class DeepSeekProvider:
             if not self.budget.can_call():
                 last_error = LLMProviderError("LLM call budget exhausted for this run")
                 break
+            attempt_label = "PRIMARY" if attempt == 0 else "RETRY"
             try:
                 response = self._http().post(
                     f"{self._llm.api_base_url.rstrip('/')}/chat/completions",
@@ -149,13 +150,27 @@ class DeepSeekProvider:
                     ),
                 )
             except httpx.HTTPError as exc:  # network-level failure
+                self.budget.record_attempt(
+                    repo_id=repo.github_repo_id,
+                    attempt=attempt_label,
+                    http_status=None,
+                    finish_reason=None,
+                    validation_result="NETWORK_ERROR",
+                )
                 last_error = LLMProviderError(f"provider request failed: {type(exc).__name__}")
                 validation_feedback = None
                 continue
 
-            usage = {}
+            usage: Mapping[str, Any] = {}
             if response.status_code >= 400:
                 self.budget.record_call(reason="ERROR")
+                self.budget.record_attempt(
+                    repo_id=repo.github_repo_id,
+                    attempt=attempt_label,
+                    http_status=response.status_code,
+                    finish_reason=None,
+                    validation_result="HTTP_ERROR",
+                )
                 last_error = LLMProviderError(f"provider returned HTTP {response.status_code}")
                 validation_feedback = None
                 continue
@@ -163,28 +178,77 @@ class DeepSeekProvider:
                 body = response.json()
             except ValueError:
                 self.budget.record_call(reason="INVALID")
+                self.budget.record_attempt(
+                    repo_id=repo.github_repo_id,
+                    attempt=attempt_label,
+                    http_status=response.status_code,
+                    finish_reason=None,
+                    validation_result="RESPONSE_JSON_ERROR",
+                )
                 last_error = LLMProviderError("provider returned non-JSON response")
                 validation_feedback = None
                 continue
 
             usage = body.get("usage") or {}
+            prompt_tokens = int(usage.get("prompt_tokens") or 0)
+            completion_tokens = int(usage.get("completion_tokens") or 0)
             self.budget.record_call(
-                reason="PRIMARY" if attempt == 0 else "RETRY",
-                input_tokens=usage.get("prompt_tokens", 0),
-                output_tokens=usage.get("completion_tokens", 0),
+                reason=attempt_label,
+                input_tokens=prompt_tokens,
+                output_tokens=completion_tokens,
                 cost=self._cost(usage),
             )
+
+            finish_reason: str | None = None
+            content: Any = None
             try:
-                content = body["choices"][0]["message"]["content"]
+                choice = body["choices"][0]
+                if isinstance(choice, Mapping):
+                    raw_finish_reason = choice.get("finish_reason")
+                    finish_reason = (
+                        str(raw_finish_reason) if raw_finish_reason is not None else None
+                    )
+                content = choice["message"]["content"]
                 payload = validate_llm_output(content)
-            except (KeyError, IndexError, TypeError) as exc:
+            except (KeyError, IndexError, TypeError):
+                self.budget.record_attempt(
+                    repo_id=repo.github_repo_id,
+                    attempt=attempt_label,
+                    http_status=response.status_code,
+                    finish_reason=finish_reason,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    content_length=len(content) if isinstance(content, str) else 0,
+                    validation_result="MISSING_CONTENT",
+                )
                 last_error = LLMProviderError("provider response is missing choices/message/content")
                 validation_feedback = None
                 continue
             except LLMValidationError as exc:
+                self.budget.record_attempt(
+                    repo_id=repo.github_repo_id,
+                    attempt=attempt_label,
+                    http_status=response.status_code,
+                    finish_reason=finish_reason,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    content_length=len(content) if isinstance(content, str) else 0,
+                    validation_result="VALIDATION_ERROR",
+                )
                 last_error = exc
                 validation_feedback = " ".join(str(exc).split())[:_RETRY_FEEDBACK_MAX_CHARS]
                 continue
+
+            self.budget.record_attempt(
+                repo_id=repo.github_repo_id,
+                attempt=attempt_label,
+                http_status=response.status_code,
+                finish_reason=finish_reason,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                content_length=len(content) if isinstance(content, str) else 0,
+                validation_result="OK",
+            )
             return to_deep_analysis(repo, payload)
 
         self.budget.record_failure()
