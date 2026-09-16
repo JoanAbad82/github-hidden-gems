@@ -18,7 +18,7 @@ class LLMBudgetExceeded(RuntimeError):
 
 @dataclass
 class LLMBudget:
-    """Per-run accounting for calls, tokens and cost."""
+    """Per-run accounting for calls, tokens, cost and safe attempt diagnostics."""
 
     max_calls: int = 0
     max_budget: float = 0.0
@@ -29,6 +29,7 @@ class LLMBudget:
     cache_hits: int = 0
     failures: int = 0
     _reasons: dict[str, int] = field(default_factory=dict)
+    _attempts: list[dict[str, Any]] = field(default_factory=list)
 
     def can_call(self) -> bool:
         if self.calls_made >= self.max_calls:
@@ -44,6 +45,33 @@ class LLMBudget:
         self.output_tokens += int(output_tokens or 0)
         self.cost += float(cost or 0.0)
         self._reasons[reason] = self._reasons.get(reason, 0) + 1
+
+    def record_attempt(
+        self,
+        *,
+        repo_id: int,
+        attempt: str,
+        http_status: int | None,
+        finish_reason: str | None,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        content_length: int = 0,
+        validation_result: str,
+    ) -> None:
+        """Record bounded diagnostics only; never prompts, generated content, or secrets."""
+
+        self._attempts.append(
+            {
+                "repo_id": int(repo_id),
+                "attempt": str(attempt),
+                "http_status": int(http_status) if http_status is not None else None,
+                "finish_reason": str(finish_reason) if finish_reason is not None else None,
+                "prompt_tokens": int(prompt_tokens or 0),
+                "completion_tokens": int(completion_tokens or 0),
+                "content_length": int(content_length or 0),
+                "validation_result": str(validation_result),
+            }
+        )
 
     def record_cache_hit(self) -> None:
         self.cache_hits += 1
@@ -61,6 +89,7 @@ class LLMBudget:
             "cache_hits": self.cache_hits,
             "failures": self.failures,
             "reasons": dict(sorted(self._reasons.items())),
+            "attempts": [dict(item) for item in self._attempts],
         }
 
 
