@@ -11,7 +11,7 @@ from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
 from ..models import DeepAnalysis, RepositoryRef
 
-PROMPT_VERSION = "DEEP_ANALYZER_PROMPT_V1"
+PROMPT_VERSION = "DEEP_ANALYZER_PROMPT_V1R1"
 SCHEMA_VERSION = "LLM_ANALYSIS_V1"
 
 DEFAULT_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "llm_analysis_v1.json"
