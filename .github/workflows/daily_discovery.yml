@@ -150,6 +150,7 @@ jobs:
           print(f"LLM_CACHE_HITS={int(usage.get('cache_hits', 0) or 0)}")
           print(f"LLM_FAILURES={int(usage.get('failures', 0) or 0)}")
           print("LLM_REASONS=" + json.dumps(usage.get("reasons", {}), ensure_ascii=True, sort_keys=True))
+          print("LLM_ATTEMPTS=" + json.dumps(usage.get("attempts", []), ensure_ascii=True, sort_keys=True))
           PY
 
       - name: Verify database integrity
