@@ -1,6 +1,6 @@
 # GitHub Hidden Gems V1
 
-Private, low-cost, GitHub-native discovery system that finds, scores, remembers
+Low-cost, GitHub-native discovery system that finds, scores, remembers
 and reports **low-visibility but valuable** public repositories in four equally
 weighted areas: AI/agents, automation, data extraction/analysis, and trading.
 The guiding rule is **precision over recall**: no padding, no noise.
