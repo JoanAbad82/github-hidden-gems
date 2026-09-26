@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a concrete production improvement
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for concrete production improvements. Speculative research hypotheses, adversarial cases, or scoring experiments belong in the Research Intake repository.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete limitation or user need does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest implementation that would solve the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or examples
+      description: Provide reproducible examples or measurements when available.
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Does this affect scoring, discovery semantics, or trust boundaries?
+      options:
+        - "No"
+        - "Yes - scoring"
+        - "Yes - discovery semantics"
+        - "Yes - trust/security boundary"
+        - "Unsure"
+    validations:
+      required: true
