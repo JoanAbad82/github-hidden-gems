@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Research hypothesis / adversarial case
+    url: https://github.com/JoanAbad82/github-hidden-gems-research-intake/issues/new/choose
+    about: Submit speculative research, falsification proposals, adversarial cases, or unvalidated scoring ideas to Research Intake.
+  - name: Security-sensitive report
+    url: https://github.com/JoanAbad82/github-hidden-gems/security
+    about: Review the Security tab and SECURITY.md before disclosing sensitive vulnerability details.
