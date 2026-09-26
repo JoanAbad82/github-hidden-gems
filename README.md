@@ -84,3 +84,7 @@ Discovery Rate of at least 70%. Evidence so far is recorded in
 
 Implementation is developed in an isolated worktree/branch and is validated
 before any merge or push.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).

@@ -66,4 +66,4 @@ Changes to scoring, discovery semantics, trust boundaries, or evidence
 interpretation require especially clear justification and regression coverage.
 
 By submitting a contribution, you agree that your contribution may be
-distributed under the repository's MIT License.
+distributed under the repository's Apache License 2.0.
