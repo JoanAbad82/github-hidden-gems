@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible defect in GitHub Hidden Gems
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a defect. Please provide a minimal reproducible case and avoid including credentials or private data.
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: What happened? Include exact output or rejection/status codes when useful.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Minimal deterministic steps, fixture, command, or input needed to reproduce the problem.
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Revision
+      description: Commit SHA, branch, or version if known.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and logs
+      description: Paste only non-sensitive evidence. Redact tokens, credentials, personal data, and private repository information.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checks
+      options:
+        - label: I have removed secrets, credentials, personal data, and private repository content.
+          required: true
+        - label: Reproducing this report does not require executing untrusted third-party repository code.
+          required: true
