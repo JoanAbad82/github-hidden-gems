@@ -33,10 +33,10 @@ jobs:
       HIDDEN_GEMS_SCHEDULED_LIVE: ${{ vars.HIDDEN_GEMS_SCHEDULED_LIVE || 'false' }}
 
     steps:
-      - name: Checkout main
+      - name: Checkout requested ref
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.ref }}
           path: app
 
       - name: Checkout state branch
