@@ -5,7 +5,7 @@ run_budgets:
   max_raw_candidates: 1000
   max_light_analysis: 200
   max_relationship_seeds: 20
-  max_deep_analysis: 25
+  max_deep_analysis: 30
 
 github:
   api_base_url: "https://api.github.com"
@@ -43,8 +43,8 @@ llm:
   api_base_url: "https://api.deepseek.com"
   api_key_env_var: DEEPSEEK_API_KEY
   timeout_seconds: 60
-  max_llm_candidates_per_run: 25
-  max_llm_calls_per_run: 30
+  max_llm_candidates_per_run: 30
+  max_llm_calls_per_run: 32
   max_input_tokens_per_repo: 12000
   max_output_tokens_per_repo: 2200
   max_llm_budget_per_run: 0.5
