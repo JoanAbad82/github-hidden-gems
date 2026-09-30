@@ -25,6 +25,19 @@ _CONFIDENCE_MAP = {"HIGH": "HIGH", "MEDIUM": "MEDIUM", "LOW": "LOW", "UNKNOWN": 
 class LLMValidationError(ValueError):
     """Raised when provider output is not a valid LLM_ANALYSIS_V1 object."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        path: str | None = None,
+        validator: str | None = None,
+        validator_value: Any = None,
+    ) -> None:
+        super().__init__(message)
+        self.path = path
+        self.validator = validator
+        self.validator_value = validator_value
+
 
 def _schema(schema_path: Path | None = None) -> Mapping[str, Any]:
     path = Path(schema_path) if schema_path else DEFAULT_SCHEMA_PATH
@@ -48,7 +61,12 @@ def validate_llm_output(payload: Any, *, schema_path: Path | None = None) -> dic
         Draft202012Validator(_schema(schema_path)).validate(candidate)
     except JsonSchemaValidationError as exc:
         location = "/".join(str(part) for part in exc.absolute_path)
-        raise LLMValidationError(f"schema violation at {location or '<root>'}: {exc.message}") from exc
+        raise LLMValidationError(
+            f"schema violation at {location or '<root>'}: {exc.message}",
+            path=location or "<root>",
+            validator=str(exc.validator) if exc.validator is not None else None,
+            validator_value=exc.validator_value,
+        ) from exc
 
     observed = candidate["evidence"].get("observed") or []
     relevance = candidate.get("relevance_suggestion")

@@ -133,6 +133,31 @@ class DeepSeekProvider:
             f"max_output_tokens_per_repo={self._llm.max_output_tokens_per_repo})"
         )
 
+    def _validation_retry_feedback(self, exc: LLMValidationError) -> str:
+        """Return concise schema diagnostics without echoing rejected content."""
+
+        if exc.path and exc.validator:
+            parts = [
+                f"path={exc.path}",
+                f"rule={exc.validator}",
+            ]
+            if exc.validator in {
+                "maxLength",
+                "minLength",
+                "maxItems",
+                "minItems",
+                "maximum",
+                "minimum",
+            } and isinstance(exc.validator_value, (int, float)):
+                parts.append(f"limit={exc.validator_value}")
+            return (
+                f"schema violation at {exc.path}; "
+                + "; ".join(parts)
+                + "."
+            )
+
+        return " ".join(str(exc).split())[:_RETRY_FEEDBACK_MAX_CHARS]
+
     # -- provider interface ----------------------------------------------
 
     def analyze_repository(self, evidence: Mapping[str, Any]) -> DeepAnalysis:
@@ -270,7 +295,7 @@ class DeepSeekProvider:
                     validation_feedback = _TRUNCATION_RETRY_FEEDBACK
                 else:
                     last_error = exc
-                    validation_feedback = " ".join(str(exc).split())[:_RETRY_FEEDBACK_MAX_CHARS]
+                    validation_feedback = self._validation_retry_feedback(exc)
                 continue
 
             self.budget.record_attempt(

@@ -186,3 +186,61 @@ def test_network_failure_is_reported_not_raised(app_config, monkeypatch):
 
     assert deep.status == "LLM_FAILED"
     assert api.budget.failures == 1
+
+
+def test_schema_retry_feedback_is_structured_and_does_not_echo_overlong_value(
+    app_config, monkeypatch
+):
+    calls = []
+    overlong = (
+        "Parent pom.xml declares packaging 'pom' with modules common, "
+        "s02-minimal-chat, s11-agent-loop, s12-tool-use, s13-permission, "
+        "s14-hooks, s21-planning, s22-subagent, s23-memory, "
+        "s24-context-compact, s25-error-recovery, s31-supervisor, "
+        "s32-orchestrator, s33-protocol, s34-checkpoint, s35-taskboard, "
+        "s36-bus, s41-tasksystem, s42-scheduler, s43-mcp, s44-capstone."
+    )
+    invalid = {
+        "summary": "A multi-module agent learning project.",
+        "why_interesting": "It covers a broad sequence of agent patterns.",
+        "relevance_suggestion": 12,
+        "originality_suggestion": 3,
+        "confidence": "MEDIUM",
+        "risks": [],
+        "evidence": {
+            "observed": [overlong],
+            "inferred": [],
+            "unknown": [],
+        },
+        "claims_supported": [],
+    }
+    bodies = iter(
+        [
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": json.dumps(invalid)},
+                    }
+                ],
+                "usage": {"prompt_tokens": 1000, "completion_tokens": 900},
+            },
+            valid_body(),
+        ]
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json=next(bodies))
+
+    api = make_provider(app_config, handler, monkeypatch=monkeypatch)
+    deep = api.analyze_repository(evidence(repo_id=1379423359))
+
+    assert deep.status == "OK"
+    assert len(calls) == 2
+    retry_payload = json.loads(calls[1].content.decode("utf-8"))
+    retry_message = retry_payload["messages"][-1]["content"]
+    assert "path=evidence/observed/0" in retry_message
+    assert "rule=maxLength" in retry_message
+    assert "limit=300" in retry_message
+    assert overlong not in retry_message

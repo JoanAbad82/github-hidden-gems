@@ -126,3 +126,26 @@ def test_to_deep_analysis_maps_evidence_and_risks():
 
 def test_schema_version_constant_is_frozen():
     assert SCHEMA_VERSION == "LLM_ANALYSIS_V1"
+
+
+def test_overlong_observed_item_exposes_structured_max_length_constraint():
+    broken = payload()
+    broken["evidence"]["observed"] = [
+        (
+            "Parent pom.xml declares packaging 'pom' with modules common, "
+            "s02-minimal-chat, s11-agent-loop, s12-tool-use, s13-permission, "
+            "s14-hooks, s21-planning, s22-subagent, s23-memory, "
+            "s24-context-compact, s25-error-recovery, s31-supervisor, "
+            "s32-orchestrator, s33-protocol, s34-checkpoint, s35-taskboard, "
+            "s36-bus, s41-tasksystem, s42-scheduler, s43-mcp, s44-capstone."
+        )
+    ]
+
+    with pytest.raises(LLMValidationError) as caught:
+        validate_llm_output(broken)
+
+    exc = caught.value
+    assert exc.path == "evidence/observed/0"
+    assert exc.validator == "maxLength"
+    assert exc.validator_value == 300
+    assert "schema violation at evidence/observed/0" in str(exc)
