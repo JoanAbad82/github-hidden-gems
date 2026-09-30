@@ -46,7 +46,7 @@ llm:
   max_llm_candidates_per_run: 25
   max_llm_calls_per_run: 30
   max_input_tokens_per_repo: 12000
-  max_output_tokens_per_repo: 1500
+  max_output_tokens_per_repo: 2200
   max_llm_budget_per_run: 0.5
   max_retries_per_candidate: 1
   cost_per_1k_input_tokens: 0.0

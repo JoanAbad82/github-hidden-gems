@@ -21,6 +21,13 @@ from .validator import (
 
 DEFAULT_PROMPT_PATH = "prompts/deep_analyzer_v1.txt"
 _RETRY_FEEDBACK_MAX_CHARS = 400
+_TRUNCATION_FINISH_REASON = "length"
+_TRUNCATION_VALIDATION_RESULT = "TRUNCATION"
+_TRUNCATION_RETRY_FEEDBACK = (
+    "The previous response was truncated at the configured output token limit before "
+    "it formed a complete valid JSON object. Return a complete, concise JSON object "
+    "that satisfies the canonical schema."
+)
 
 
 class DeepSeekProvider:
@@ -118,6 +125,14 @@ class DeepSeekProvider:
             + output_tokens / 1000.0 * float(self._llm.cost_per_1k_output_tokens)
         )
 
+    def _truncation_error(self, *, completion_tokens: int) -> LLMProviderError:
+        return LLMProviderError(
+            "provider output was truncated at the configured output token limit "
+            f"(finish_reason={_TRUNCATION_FINISH_REASON}, "
+            f"completion_tokens={completion_tokens}, "
+            f"max_output_tokens_per_repo={self._llm.max_output_tokens_per_repo})"
+        )
+
     # -- provider interface ----------------------------------------------
 
     def analyze_repository(self, evidence: Mapping[str, Any]) -> DeepAnalysis:
@@ -200,6 +215,7 @@ class DeepSeekProvider:
             )
 
             finish_reason: str | None = None
+            truncated = False
             content: Any = None
             try:
                 choice = body["choices"][0]
@@ -207,6 +223,10 @@ class DeepSeekProvider:
                     raw_finish_reason = choice.get("finish_reason")
                     finish_reason = (
                         str(raw_finish_reason) if raw_finish_reason is not None else None
+                    )
+                    truncated = (
+                        finish_reason is not None
+                        and finish_reason.lower() == _TRUNCATION_FINISH_REASON
                     )
                 content = choice["message"]["content"]
                 payload = validate_llm_output(content)
@@ -219,10 +239,18 @@ class DeepSeekProvider:
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     content_length=len(content) if isinstance(content, str) else 0,
-                    validation_result="MISSING_CONTENT",
+                    validation_result=(
+                        _TRUNCATION_VALIDATION_RESULT if truncated else "MISSING_CONTENT"
+                    ),
                 )
-                last_error = LLMProviderError("provider response is missing choices/message/content")
-                validation_feedback = None
+                if truncated:
+                    last_error = self._truncation_error(completion_tokens=completion_tokens)
+                    validation_feedback = _TRUNCATION_RETRY_FEEDBACK
+                else:
+                    last_error = LLMProviderError(
+                        "provider response is missing choices/message/content"
+                    )
+                    validation_feedback = None
                 continue
             except LLMValidationError as exc:
                 self.budget.record_attempt(
@@ -233,10 +261,16 @@ class DeepSeekProvider:
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     content_length=len(content) if isinstance(content, str) else 0,
-                    validation_result="VALIDATION_ERROR",
+                    validation_result=(
+                        _TRUNCATION_VALIDATION_RESULT if truncated else "VALIDATION_ERROR"
+                    ),
                 )
-                last_error = exc
-                validation_feedback = " ".join(str(exc).split())[:_RETRY_FEEDBACK_MAX_CHARS]
+                if truncated:
+                    last_error = self._truncation_error(completion_tokens=completion_tokens)
+                    validation_feedback = _TRUNCATION_RETRY_FEEDBACK
+                else:
+                    last_error = exc
+                    validation_feedback = " ".join(str(exc).split())[:_RETRY_FEEDBACK_MAX_CHARS]
                 continue
 
             self.budget.record_attempt(

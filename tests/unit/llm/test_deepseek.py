@@ -73,6 +73,7 @@ def test_valid_response_becomes_a_deep_analysis(app_config, monkeypatch):
     assert body["response_format"] == {"type": "json_object"}
     assert "UNTRUSTED" in body["messages"][0]["content"].upper()
     assert body["temperature"] == 0
+    assert body["max_tokens"] == 2200
 
 
 def test_authorization_header_is_never_leaked_in_errors(app_config, monkeypatch):
