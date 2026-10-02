@@ -117,3 +117,48 @@ Recommended next step after review:
 3. confirm that repo `1379423359` either succeeds after retry or fails for a
    genuinely different bounded reason;
 4. handle multilingual tutorial detection as a separate task.
+
+
+## Targeted real-repository closure
+
+A read-only diagnostic workflow was added to bypass discovery ranking while
+reusing the production LightAnalyzer -> DeepAnalyzer -> DeepSeekProvider path.
+
+Target:
+- repository: `AidenBJ/java-multi-agent-lab`
+- repo_id: `1379423359`
+
+Observed probes:
+
+1. run `36999662621` on `7443f1e`
+   - LLM_STATUS=LLM_FAILED
+   - PRIMARY + RETRY
+   - both VALIDATION_ERROR
+   - residual: `evidence/observed/0 maxLength=300`
+
+2. run `37000080014` on `adcd398`
+   - prompt V1R2 with explicit <=300-character rule
+   - LLM_STATUS=LLM_FAILED
+   - PRIMARY + RETRY
+   - same residual remained
+
+3. run `37000563276` on `bb5c7f4`
+   - canonical schema unchanged
+   - over-length evidence arrays use observable, lossless bounded segmentation
+   - LLM_STATUS=OK
+   - LLM_FAILURES=0
+   - LLM_REASONS={"PRIMARY": 1}
+   - validation_result=NORMALIZED_OK
+   - no retry required
+
+Conclusion:
+
+`deepseek-schema-conformance-v1` is CLOSED for the observed residual.
+
+The provider now preserves all evidence text while enforcing the canonical
+per-item bound. Any normalization is visible in attempt diagnostics as
+`NORMALIZED_OK`; if segmentation would exceed canonical maxItems, it fails
+closed.
+
+The multilingual tutorial-classification gap remains a separate issue and is
+not part of this closure.
