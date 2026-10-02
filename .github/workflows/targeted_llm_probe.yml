@@ -1,0 +1,37 @@
+name: targeted-llm-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "GitHub repository in owner/name form"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Validate configuration
+        run: python -m hidden_gems.cli validate-config --root .
+
+      - name: Run targeted read-only LLM probe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: python tools/targeted_llm_probe.py --repo "${{ inputs.repository }}" --root .

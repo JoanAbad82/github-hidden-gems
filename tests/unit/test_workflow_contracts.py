@@ -35,9 +35,14 @@ def discovery_workflow() -> dict:
     return load_workflow("daily_discovery.yml")
 
 
+@pytest.fixture(scope="module")
+def targeted_probe_workflow() -> dict:
+    return load_workflow("targeted_llm_probe.yml")
+
+
 def test_all_workflow_files_parse():
     files = sorted(path.name for path in WORKFLOWS.glob("*.yml"))
-    assert files == ["daily_discovery.yml", "tests.yml"]
+    assert files == ["daily_discovery.yml", "targeted_llm_probe.yml", "tests.yml"]
 
 
 def test_no_pull_request_target_anywhere():
@@ -72,9 +77,24 @@ def test_production_has_single_concurrency_group(discovery_workflow: dict):
     assert concurrency["cancel-in-progress"] is False
 
 
-def test_default_permissions_are_read_only(discovery_workflow: dict, tests_workflow: dict):
+def test_default_permissions_are_read_only(
+    discovery_workflow: dict, targeted_probe_workflow: dict, tests_workflow: dict
+):
     assert discovery_workflow["permissions"] == {"contents": "read"}
+    assert targeted_probe_workflow["permissions"] == {"contents": "read"}
     assert tests_workflow["permissions"] == {"contents": "read"}
+
+
+def test_targeted_probe_is_manual_read_only_diagnostic(targeted_probe_workflow: dict):
+    triggers = trigger_block(targeted_probe_workflow)
+    assert set(triggers) == {"workflow_dispatch"}
+    assert set(targeted_probe_workflow["jobs"]) == {"probe"}
+    job = targeted_probe_workflow["jobs"]["probe"]
+    assert int(job["timeout-minutes"]) > 0
+    text = (WORKFLOWS / "targeted_llm_probe.yml").read_text(encoding="utf-8")
+    assert "DEEPSEEK_API_KEY" in text
+    assert "issues: write" not in text
+    assert "contents: write" not in text
 
 
 def test_only_publishing_job_requests_write_permissions(discovery_workflow: dict):
