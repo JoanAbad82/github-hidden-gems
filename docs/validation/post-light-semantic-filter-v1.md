@@ -129,3 +129,104 @@ Branch:
 No filtering-rule change.
 No live publishing change.
 No scoring change.
+
+
+## Production-path closure
+
+Integrated code commit:
+
+`acd2f3a66585f493ae1fc181864f6a10747a0651`
+
+### Real repository targeted pipeline proof
+
+A local read-only diagnostic ran the real `run_pipeline` against the real GitHub
+repository `AidenBJ/java-multi-agent-lab` while forcing discovery to contain
+only that repository.
+
+The diagnostic used:
+- the production `LightAnalyzer`;
+- the production post-light semantic gate;
+- real GitHub README/tree data;
+- real SQLite `HistoryStore`;
+- a local sentinel LLM that records calls and would fail if invoked.
+
+The Python import path was pinned explicitly to the current `main/src` to
+avoid stale editable-install ambiguity.
+
+Observed:
+
+- repo_id: `1379423359`
+- discovered: 1
+- filtered_in: 1
+- light_analyzed: 1
+- rejected: 1
+- deep_analyzed: 0
+- scored: 0
+- LLM calls: **0**
+- result: `SUCCESS_NO_FINDINGS`
+
+Persisted filter decisions:
+
+1. pre-light:
+   - PASS
+   - `passed:no_rejection_rule_matched`
+
+2. post-light:
+   - `REJECT_TUTORIAL`
+   - `stage:post_light`
+   - `description:tutorial_wording`
+   - `readme:tutorial_wording`
+
+Therefore, when this repository enters the production pipeline, it cannot reach
+DeepAnalyzer or consume an LLM call after the post-light gate.
+
+### Full GitHub Actions dry-run
+
+Run:
+`37038564968`
+
+SHA:
+`acd2f3a66585f493ae1fc181864f6a10747a0651`
+
+Result:
+- workflow conclusion: `success`
+- pipeline result: `SUCCESS`
+- discovered: 383
+- reported: 5
+- LLM calls: 26
+- LLM failures: 0
+- LLM reasons: 25 PRIMARY + 1 RETRY
+- database integrity: `DB_VALID`
+- dry-run state persistence: skipped as designed
+
+One unrelated repository (`repo_id=1373833056`) hit an output-token
+truncation on PRIMARY and recovered successfully on RETRY. This did not produce
+an LLM failure.
+
+The target repository `1379423359` was not present in this run's discovery/log
+surface, so its absence from `LLM_ATTEMPTS` is **not** used as evidence of
+post-light rejection. The targeted real-repository pipeline proof above is the
+closure evidence for that property.
+
+### Baseline comparison
+
+Immediately preceding full dry-run on the same 383-candidate discovery surface:
+- discovered: 383
+- reported: 5
+- LLM calls: 26
+- LLM failures: 0
+
+Post-light-filter dry-run:
+- discovered: 383
+- reported: 5
+- LLM calls: 26
+- LLM failures: 0
+
+No observed degradation in report count or LLM failure rate.
+
+## Final disposition
+
+`ACCEPTED / POST_LIGHT_SEMANTIC_GATE_CONNECTED`
+
+The documented two-stage hard-filter contract is now implemented in the
+production path.
