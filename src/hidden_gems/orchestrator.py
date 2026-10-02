@@ -11,7 +11,7 @@ from .common.time import utcnow
 from .config import AppConfig
 from .deep_analysis.analyzer import DeepAnalyzer
 from .discovery.engine import run_discovery
-from .filtering.hard_filter import evaluate_candidate
+from .filtering.hard_filter import FilterEvidence, evaluate_candidate
 from .github.issues import GitHubIssuePublisher
 from .light_analysis.analyzer import LightAnalyzer
 from .llm.base import LLMBudget, LLMBudgetExceeded, DisabledLLMProvider, LLMProviderError
@@ -128,13 +128,27 @@ def run_pipeline(
         analyzer = LightAnalyzer(config, github)
         lights: list[tuple[DiscoveryCandidate, LightAnalysis]] = []
         light_budget = int(budgets["max_light_analysis"])
+        light_analyzed_count = 0
         for candidate in admitted[:light_budget]:
             analyzed = _light_analyze(
                 analyzer, history, candidate, context, moment, errors
             )
-            if analyzed is not None:
+            if analyzed is None:
+                continue
+            light_analyzed_count += 1
+            post_light = _post_light_filter_decision(
+                config=config,
+                history=history,
+                candidate=candidate,
+                analysis=analyzed,
+                context=context,
+                moment=moment,
+            )
+            if post_light.passed:
                 lights.append((candidate, analyzed))
-        counts["light_analyzed"] = len(lights)
+            else:
+                counts["rejected"] += 1
+        counts["light_analyzed"] = light_analyzed_count
 
         if not rate_limited:
             related = _expand_relationships(
@@ -391,6 +405,43 @@ def _light_analyze(
     return analysis
 
 
+def _filter_evidence_from_light(
+    candidate: DiscoveryCandidate, analysis: LightAnalysis
+) -> FilterEvidence:
+    evidence = analysis.evidence or {}
+    return FilterEvidence(
+        readme_text=analysis.readme_excerpt,
+        tree_paths=tuple(str(path) for path in evidence.get("tree_paths") or ()),
+        manifest_names=tuple(str(name) for name in evidence.get("manifest_names") or ()),
+        total_size_kb=candidate.size_kb,
+    )
+
+
+def _post_light_filter_decision(
+    *,
+    config: AppConfig,
+    history: Any,
+    candidate: DiscoveryCandidate,
+    analysis: LightAnalysis,
+    context: RunContext,
+    moment: datetime,
+):
+    decision = evaluate_candidate(
+        candidate,
+        _filter_evidence_from_light(candidate, analysis),
+        config=config,
+    )
+    history.save_filter_decision(
+        candidate.repo.github_repo_id,
+        run_id=context.run_id,
+        decided_at=moment,
+        passed=decision.passed,
+        reason_code=decision.reason_code,
+        evidence=("stage:post_light", *decision.evidence),
+    )
+    return decision
+
+
 def _expand_relationships(
     *,
     config: AppConfig,
@@ -437,7 +488,17 @@ def _expand_relationships(
             seen_at=moment,
         )
         analyzed = _light_analyze(analyzer, history, candidate, context, moment, errors)
-        if analyzed is not None:
+        if analyzed is None:
+            continue
+        post_light = _post_light_filter_decision(
+            config=config,
+            history=history,
+            candidate=candidate,
+            analysis=analyzed,
+            context=context,
+            moment=moment,
+        )
+        if post_light.passed:
             expanded.append((candidate, analyzed))
     return expanded
 

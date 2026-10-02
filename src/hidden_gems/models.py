@@ -118,6 +118,9 @@ class LightAnalysis:
     dependency_hash: str
     relevant_content_hash: str
     evidence: dict[str, Any] = field(default_factory=dict)
+    # Ephemeral bounded text for post-light semantic filtering. It is not part
+    # of persisted observation evidence and does not feed deep/LLM prompts.
+    readme_excerpt: str | None = None
 
     def __post_init__(self) -> None:
         if self.activity_level not in ACTIVITY_LEVELS:

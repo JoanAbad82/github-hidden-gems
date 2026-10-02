@@ -215,6 +215,8 @@ class LightAnalyzer:
             dependency_hash=dependency_hash,
             relevant_content_hash=relevant_content_hash(readme_hash, tree_hash, dependency_hash),
             evidence=evidence,
+            readme_excerpt=(readme or "")[: int(self._config.light.max_readme_chars_for_hash)]
+            or None,
         )
 
 

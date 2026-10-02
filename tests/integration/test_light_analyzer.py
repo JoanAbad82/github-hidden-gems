@@ -187,3 +187,14 @@ def test_analyzer_never_executes_or_clones(app_config):
     assert set(client.requests) <= {
         "readme", "tree", "releases", "commits", "/repos/acme-labs/flowkit/contents/pyproject.toml"
     }
+
+
+def test_analyzer_keeps_only_bounded_ephemeral_readme_excerpt(app_config):
+    oversized = "教程 " + ("x" * (app_config.light.max_readme_chars_for_hash + 500))
+    analysis = LightAnalyzer(
+        app_config, FakeClient(readme=oversized)
+    ).analyze(candidate(), as_of=AS_OF)
+
+    assert analysis.readme_excerpt is not None
+    assert len(analysis.readme_excerpt) == app_config.light.max_readme_chars_for_hash
+    assert "readme_excerpt" not in analysis.evidence
