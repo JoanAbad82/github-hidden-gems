@@ -128,3 +128,92 @@ def test_filter_is_deterministic(app_config):
     assert evaluate_candidate(candidate, evidence, config=app_config) == evaluate_candidate(
         candidate, evidence, config=app_config
     )
+
+
+MULTILINGUAL_SUBSTANTIAL_TREE = tuple(
+    [f"src/module_{index}.py" for index in range(8)]
+    + ["tests/test_core.py", "tests/test_agents.py", "README.md"]
+)
+
+
+@pytest.mark.parametrize(
+    "description_suffix,readme_text",
+    [
+        (
+            "Java Agent 学习工程，渐进式教程，面向多智能体实践。",
+            "这是一个循序渐进的教程，用于学习 multi-agent workflow automation。",
+        ),
+        (
+            "Proyecto educativo: tutorial paso a paso de agentes y automatización.",
+            "Este repositorio es un curso para principiantes sobre workflow automation.",
+        ),
+        (
+            "Projecte d'aprenentatge: guia pas a pas d'agents i automatització.",
+            "Aquest repositori és un curs per a principiants sobre workflow automation.",
+        ),
+    ],
+)
+def test_multilingual_tutorial_requires_two_text_surfaces_even_for_substantial_repo(
+    app_config, description_suffix, readme_text
+):
+    candidate, _ = build("new_real_project")
+    candidate.description = f"{candidate.description}. {description_suffix}"
+    evidence = FilterEvidence(
+        tree_paths=MULTILINGUAL_SUBSTANTIAL_TREE,
+        readme_text=readme_text,
+    )
+
+    decision = evaluate_candidate(candidate, evidence, config=app_config)
+
+    assert decision.reason_code == "REJECT_TUTORIAL"
+    assert "description:tutorial_wording" in decision.evidence
+    assert "readme:tutorial_wording" in decision.evidence
+    assert "tree:minimal_implementation" not in decision.evidence
+
+
+def test_single_multilingual_tutorial_signal_does_not_reject(app_config):
+    candidate, _ = build("new_real_project")
+    candidate.description = (
+        f"{candidate.description}. Java Agent 学习工程，渐进式教程。"
+    )
+    evidence = FilterEvidence(
+        tree_paths=MULTILINGUAL_SUBSTANTIAL_TREE,
+        readme_text="Production workflow automation runtime with plugins and tests.",
+    )
+
+    decision = evaluate_candidate(candidate, evidence, config=app_config)
+
+    assert decision.passed is True
+    assert decision.reason_code is None
+
+
+@pytest.mark.parametrize(
+    "description,readme_text",
+    [
+        (
+            "Machine learning inference service for workflow automation.",
+            "机器学习平台，面向生产环境的 workflow automation 服务。",
+        ),
+        (
+            "Plataforma de aprendizaje automático para automatización de flujos.",
+            "Servicio de producción con modelos y workflow automation.",
+        ),
+        (
+            "Plataforma d'aprenentatge automàtic per a automatització de fluxos.",
+            "Servei de producció amb models i workflow automation.",
+        ),
+    ],
+)
+def test_multilingual_learning_terms_alone_are_not_tutorial_signals(
+    app_config, description, readme_text
+):
+    candidate, _ = build("new_real_project")
+    candidate.description = description
+    evidence = FilterEvidence(
+        tree_paths=MULTILINGUAL_SUBSTANTIAL_TREE,
+        readme_text=readme_text,
+    )
+
+    decision = evaluate_candidate(candidate, evidence, config=app_config)
+
+    assert decision.reason_code != "REJECT_TUTORIAL"

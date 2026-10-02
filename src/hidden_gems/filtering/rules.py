@@ -224,6 +224,7 @@ _PROMO_PATTERNS = (
 )
 
 _TUTORIAL_DESCRIPTION = (
+    # English
     "tutorial",
     "step by step",
     "learn how to",
@@ -232,15 +233,55 @@ _TUTORIAL_DESCRIPTION = (
     "guide for beginners",
     "for beginners",
     "educational",
+    # Chinese — explicit educational/tutorial phrases only.
+    "渐进式教程",
+    "入门教程",
+    "教学项目",
+    "学习工程",
+    "学习项目",
+    # Spanish — avoid bare "aprendizaje".
+    "paso a paso",
+    "para principiantes",
+    "proyecto educativo",
+    "proyecto de aprendizaje",
+    # Catalan — avoid bare "aprenentatge".
+    "pas a pas",
+    "per a principiants",
+    "projecte educatiu",
+    "projecte d'aprenentatge",
 )
 
 _TUTORIAL_README = (
+    # English
     "this repository is a learning exercise",
     "follow this course",
     "step by step",
     "tutorial series",
     "for beginners",
     "learning purposes",
+    # Chinese
+    "渐进式教程",
+    "循序渐进的教程",
+    "入门教程",
+    "教学项目",
+    "学习工程",
+    "学习项目",
+    # Spanish
+    "este repositorio es un ejercicio de aprendizaje",
+    "sigue este curso",
+    "paso a paso",
+    "serie de tutoriales",
+    "para principiantes",
+    "fines educativos",
+    "proyecto de aprendizaje",
+    # Catalan
+    "aquest repositori és un exercici d'aprenentatge",
+    "segueix aquest curs",
+    "pas a pas",
+    "sèrie de tutorials",
+    "per a principiants",
+    "finalitats educatives",
+    "projecte d'aprenentatge",
 )
 
 _TEMPLATE_DESCRIPTION = (
