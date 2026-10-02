@@ -69,8 +69,8 @@ def _messages_text(request: httpx.Request) -> str:
     return "\n".join(str(message.get("content", "")) for message in payload["messages"])
 
 
-def test_prompt_version_is_v1r1():
-    assert PROMPT_VERSION == "DEEP_ANALYZER_PROMPT_V1R1"
+def test_prompt_version_is_v1r2():
+    assert PROMPT_VERSION == "DEEP_ANALYZER_PROMPT_V1R2"
 
 
 def test_primary_request_contains_canonical_json_schema(app_config, monkeypatch):
@@ -137,3 +137,20 @@ def test_retry_after_oversized_risk_receives_validation_feedback(app_config, mon
     retry_messages = _messages_text(calls[1])
     assert "schema violation at risks/0" in retry_messages
     assert "Generate a new JSON object from scratch" in retry_messages
+
+
+def test_primary_prompt_states_per_item_300_character_limit(app_config, monkeypatch):
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return _response(_valid_content())
+
+    provider = _provider(app_config, handler, monkeypatch)
+    result = provider.analyze_repository(_evidence())
+
+    assert result.status == "OK"
+    messages = _messages_text(calls[0])
+    assert "at most 300 characters" in messages
+    assert "evidence.observed" in messages
+    assert "long module/file lists" in messages

@@ -150,11 +150,18 @@ class DeepSeekProvider:
                 "minimum",
             } and isinstance(exc.validator_value, (int, float)):
                 parts.append(f"limit={exc.validator_value}")
-            return (
+            feedback = (
                 f"schema violation at {exc.path}; "
                 + "; ".join(parts)
                 + "."
             )
+            if exc.validator == "maxLength" and isinstance(exc.validator_value, (int, float)):
+                feedback += (
+                    f" Rewrite the violating string to at most {exc.validator_value} characters. "
+                    "For evidence arrays, compress long enumerations into a concise fact or split "
+                    "them into multiple independent items, each within the same limit."
+                )
+            return feedback
 
         return " ".join(str(exc).split())[:_RETRY_FEEDBACK_MAX_CHARS]
 
