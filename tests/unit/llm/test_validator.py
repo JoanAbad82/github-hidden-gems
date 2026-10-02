@@ -9,6 +9,7 @@ import pytest
 from hidden_gems.llm.validator import (
     LLMValidationError,
     SCHEMA_VERSION,
+    normalize_evidence_item_lengths,
     to_deep_analysis,
     validate_llm_output,
 )
@@ -149,3 +150,29 @@ def test_overlong_observed_item_exposes_structured_max_length_constraint():
     assert exc.validator == "maxLength"
     assert exc.validator_value == 300
     assert "schema violation at evidence/observed/0" in str(exc)
+
+
+def test_overlong_evidence_normalization_is_lossless_and_schema_valid():
+    source = "A" * 299 + "BC" + "D" * 320
+    broken = payload()
+    broken["evidence"]["observed"] = [source]
+
+    normalized, changed = normalize_evidence_item_lengths(broken)
+
+    assert changed is True
+    parts = normalized["evidence"]["observed"]
+    assert all(len(part) <= 300 for part in parts)
+    assert "".join(parts) == source
+    assert validate_llm_output(normalized)["evidence"]["observed"] == parts
+
+
+def test_evidence_normalization_fails_closed_when_max_items_would_be_exceeded():
+    broken = payload()
+    broken["evidence"]["observed"] = ["ok"] * 24 + ["X" * 301]
+
+    with pytest.raises(LLMValidationError) as caught:
+        normalize_evidence_item_lengths(broken)
+
+    assert caught.value.path == "evidence/observed"
+    assert caught.value.validator == "maxItems"
+    assert caught.value.validator_value == 25

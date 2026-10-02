@@ -15,6 +15,7 @@ from .validator import (
     DEFAULT_SCHEMA_PATH,
     PROMPT_VERSION,
     LLMValidationError,
+    normalize_evidence_item_lengths,
     to_deep_analysis,
     validate_llm_output,
 )
@@ -248,6 +249,7 @@ class DeepSeekProvider:
 
             finish_reason: str | None = None
             truncated = False
+            normalized = False
             content: Any = None
             try:
                 choice = body["choices"][0]
@@ -261,7 +263,23 @@ class DeepSeekProvider:
                         and finish_reason.lower() == _TRUNCATION_FINISH_REASON
                     )
                 content = choice["message"]["content"]
-                payload = validate_llm_output(content)
+                try:
+                    payload = validate_llm_output(content)
+                except LLMValidationError as exc:
+                    normalizable = (
+                        exc.validator == "maxLength"
+                        and isinstance(exc.path, str)
+                        and exc.path.startswith(
+                            ("evidence/observed/", "evidence/inferred/", "evidence/unknown/")
+                        )
+                    )
+                    if not normalizable:
+                        raise
+                    normalized_payload, changed = normalize_evidence_item_lengths(content)
+                    if not changed:
+                        raise
+                    payload = validate_llm_output(normalized_payload)
+                    normalized = True
             except (KeyError, IndexError, TypeError):
                 self.budget.record_attempt(
                     repo_id=repo.github_repo_id,
@@ -313,7 +331,7 @@ class DeepSeekProvider:
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 content_length=len(content) if isinstance(content, str) else 0,
-                validation_result="OK",
+                validation_result="NORMALIZED_OK" if normalized else "OK",
             )
             return to_deep_analysis(repo, payload)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any, Mapping
@@ -44,8 +45,66 @@ def _schema(schema_path: Path | None = None) -> Mapping[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def normalize_evidence_item_lengths(
+    payload: Any, *, schema_path: Path | None = None
+) -> tuple[dict[str, Any], bool]:
+    """Losslessly segment over-length evidence strings using canonical schema limits.
+
+    Only evidence.observed/inferred/unknown are eligible. If segmentation would
+    exceed the field's canonical maxItems, fail closed.
+    """
+
+    if isinstance(payload, (bytes, str)):
+        text = payload.decode("utf-8") if isinstance(payload, bytes) else payload
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise LLMValidationError(f"provider output is not valid JSON: {exc.msg}") from exc
+    if not isinstance(payload, Mapping):
+        raise LLMValidationError("provider output must be a JSON object")
+
+    candidate = copy.deepcopy(dict(payload))
+    evidence = candidate.get("evidence")
+    if not isinstance(evidence, Mapping):
+        return candidate, False
+
+    schema = _schema(schema_path)
+    evidence_rules = schema["properties"]["evidence"]["properties"]
+    evidence_out = dict(evidence)
+    changed = False
+
+    for field in ("observed", "inferred", "unknown"):
+        items = evidence_out.get(field)
+        if not isinstance(items, list):
+            continue
+        field_rule = evidence_rules[field]
+        max_items = int(field_rule["maxItems"])
+        max_length = int(field_rule["items"]["maxLength"])
+        normalized: list[Any] = []
+        for item in items:
+            if isinstance(item, str) and len(item) > max_length:
+                normalized.extend(
+                    item[index : index + max_length]
+                    for index in range(0, len(item), max_length)
+                )
+                changed = True
+            else:
+                normalized.append(item)
+        if len(normalized) > max_items:
+            raise LLMValidationError(
+                f"evidence/{field} normalization would exceed maxItems={max_items}",
+                path=f"evidence/{field}",
+                validator="maxItems",
+                validator_value=max_items,
+            )
+        evidence_out[field] = normalized
+
+    candidate["evidence"] = evidence_out
+    return candidate, changed
+
+
 def validate_llm_output(payload: Any, *, schema_path: Path | None = None) -> dict[str, Any]:
-    """Validate and normalize one provider answer. Never repairs silently."""
+    """Validate one provider answer strictly against the canonical schema."""
 
     if isinstance(payload, (bytes, str)):
         text = payload.decode("utf-8") if isinstance(payload, bytes) else payload

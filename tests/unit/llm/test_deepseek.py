@@ -188,7 +188,7 @@ def test_network_failure_is_reported_not_raised(app_config, monkeypatch):
     assert api.budget.failures == 1
 
 
-def test_schema_retry_feedback_is_structured_and_does_not_echo_overlong_value(
+def test_overlong_observed_evidence_is_losslessly_normalized_without_retry(
     app_config, monkeypatch
 ):
     calls = []
@@ -214,9 +214,12 @@ def test_schema_retry_feedback_is_structured_and_does_not_echo_overlong_value(
         },
         "claims_supported": [],
     }
-    bodies = iter(
-        [
-            {
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(
+            200,
+            json={
                 "choices": [
                     {
                         "finish_reason": "stop",
@@ -225,22 +228,14 @@ def test_schema_retry_feedback_is_structured_and_does_not_echo_overlong_value(
                 ],
                 "usage": {"prompt_tokens": 1000, "completion_tokens": 900},
             },
-            valid_body(),
-        ]
-    )
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(request)
-        return httpx.Response(200, json=next(bodies))
+        )
 
     api = make_provider(app_config, handler, monkeypatch=monkeypatch)
     deep = api.analyze_repository(evidence(repo_id=1379423359))
 
     assert deep.status == "OK"
-    assert len(calls) == 2
-    retry_payload = json.loads(calls[1].content.decode("utf-8"))
-    retry_message = retry_payload["messages"][-1]["content"]
-    assert "path=evidence/observed/0" in retry_message
-    assert "rule=maxLength" in retry_message
-    assert "limit=300" in retry_message
-    assert overlong not in retry_message
+    assert len(calls) == 1
+    assert "".join(deep.evidence["observed"]) == overlong
+    assert all(len(item) <= 300 for item in deep.evidence["observed"])
+    attempts = api.budget.snapshot()["attempts"]
+    assert attempts[0]["validation_result"] == "NORMALIZED_OK"
