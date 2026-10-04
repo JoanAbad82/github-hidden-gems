@@ -8,7 +8,9 @@ The guiding rule is **precision over recall**: no padding, no noise.
 The frozen design (`SPEC_V1`) and the implementation plan live under
 `docs/superpowers/`; the module contract is in
 `docs/superpowers/contracts/v1-module-interfaces.md` and day-to-day operation is
-documented in [docs/operations.md](docs/operations.md).
+documented in [docs/operations.md](docs/operations.md). Humans and agents should
+use [docs/CANONICAL_SOURCES.md](docs/CANONICAL_SOURCES.md) to resolve authority
+between current code/tests, contracts, validation evidence, historical plans, and research material.
 
 ## How it works
 
