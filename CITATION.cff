@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software or methodology in research, please cite the repository."
+title: "GitHub Hidden Gems"
+type: software
+authors:
+  - family-names: "Abad"
+    given-names: "Joan"
+repository-code: "https://github.com/JoanAbad82/github-hidden-gems"
+url: "https://github.com/JoanAbad82/github-hidden-gems"
+license: "Apache-2.0"
+abstract: >-
+  A low-noise GitHub-native system for discovering, scoring, tracking, and
+  validating valuable low-visibility public repositories using bounded static
+  analysis, reproducible evidence, and conservative trust boundaries.
+keywords:
+  - "repository discovery"
+  - "static analysis"
+  - "open source"
+  - "automation"
+  - "agents"
+  - "reproducibility"
