@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "repository": "JoanAbad82/github-hidden-gems",
+  "purpose": "machine-readable discovery of bounded agent-ready research work",
+  "canonical_task_surface": "JoanAbad82/github-hidden-gems-research-intake",
+  "live_query": "https://github.com/JoanAbad82/github-hidden-gems-research-intake/issues?q=is%3Aissue+is%3Aopen+label%3Aagent-ready",
+  "accepted_task_types": [
+    "falsification",
+    "adversarial-fixture",
+    "independent-reproduction",
+    "evidence-boundary-review"
+  ],
+  "task_contract": {
+    "external_input_trust": "UNTRUSTED_EXTERNAL_INPUT",
+    "production_write_access": false,
+    "automatic_promotion": false,
+    "expected_artifact": [
+      "minimal fixture or bounded research note",
+      "deterministic assertion/falsifier",
+      "evidence/provenance statement",
+      "known limitations"
+    ],
+    "default_validation": "python -m pytest -m \"not live\""
+  },
+  "labels": {
+    "discovery": "agent-ready",
+    "review_gate": "human-review-required",
+    "classes": [
+      "falsification",
+      "adversarial-fixture",
+      "reproduction-needed",
+      "evidence-needed"
+    ]
+  },
+  "custom_agents": [
+    ".github/agents/hidden-gems-falsifier.md",
+    ".github/agents/evidence-boundary-reviewer.md"
+  ]
+}

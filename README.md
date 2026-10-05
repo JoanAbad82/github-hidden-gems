@@ -87,9 +87,13 @@ Discovery Rate of at least 70%. Evidence so far is recorded in
 Implementation is developed in an isolated worktree/branch and is validated
 before any merge or push.
 
-## Machine-readable status
+## Machine-readable / native agent surface
 
-`PROJECT_STATUS.json` exposes the current acceptance state, canonical sources, validation commands, research entry point, and production/research boundaries for agents and retrieval systems.
+- `PROJECT_STATUS.json` exposes the current acceptance state, canonical sources, validation commands, research entry point, and production/research boundaries.
+- `AGENT_TASKS.json` exposes the live agent-ready task surface and task contract.
+- `.github/copilot-instructions.md` provides repository-wide GitHub Copilot instructions.
+- `.github/instructions/` provides path-specific Copilot instructions.
+- `.github/agents/` contains reusable specialist custom agents for falsification and evidence-boundary review.
 
 ## License
 
