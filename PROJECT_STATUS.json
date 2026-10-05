@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "repository": "JoanAbad82/github-hidden-gems",
+  "status": "active",
+  "acceptance_state": "PENDING_MULTI_DAY_VALIDATION",
+  "canonical_branch": "main",
+  "license": "Apache-2.0",
+  "canonical_sources": [
+    "README.md",
+    "AGENTS.md",
+    "docs/CANONICAL_SOURCES.md",
+    "docs/superpowers/contracts/v1-module-interfaces.md",
+    "docs/validation/"
+  ],
+  "validation": {
+    "offline_tests": "python -m pytest -m \"not live\"",
+    "config": "hidden-gems validate-config --root .",
+    "controlled_live": "hidden-gems run --root . --db state/history.sqlite3 --controlled-live",
+    "acceptance": "hidden-gems validation-status ...",
+    "ci": "GitHub Actions"
+  },
+  "interaction": {
+    "autonomous_agents": true,
+    "research_entrypoint": "JoanAbad82/github-hidden-gems-research-intake",
+    "preferred_submission": "github_issue",
+    "external_input_trust": "UNTRUSTED_EXTERNAL_INPUT",
+    "production_write_access": false,
+    "automatic_promotion": false
+  },
+  "boundaries": [
+    "External repository code is never cloned, installed, imported, built, tested, or executed.",
+    "Optional LLM enrichment is not required for the core pipeline.",
+    "Research Intake and MoltBook findings are not production authority.",
+    "V1 acceptance must not be inferred before the documented multi-day gate passes."
+  ]
+}
