@@ -87,6 +87,10 @@ Discovery Rate of at least 70%. Evidence so far is recorded in
 Implementation is developed in an isolated worktree/branch and is validated
 before any merge or push.
 
+## Machine-readable status
+
+`PROJECT_STATUS.json` exposes the current acceptance state, canonical sources, validation commands, research entry point, and production/research boundaries for agents and retrieval systems.
+
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
