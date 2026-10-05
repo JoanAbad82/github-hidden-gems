@@ -6,7 +6,7 @@ GitHub Hidden Gems is a GitHub-native discovery and scoring system for low-visib
 
 ## Canonical sources
 
-Read `docs/CANONICAL_SOURCES.md` before changing behavior. `PROJECT_STATUS.json` provides a compact machine-readable snapshot of current status, validation, interaction and boundaries.
+Read `docs/CANONICAL_SOURCES.md` before changing behavior. `PROJECT_STATUS.json` provides a compact machine-readable snapshot of current status, validation, interaction and boundaries. `AGENT_TASKS.json` is the canonical machine-readable discovery surface for bounded external agent work.
 
 Priority order for current production behavior:
 
