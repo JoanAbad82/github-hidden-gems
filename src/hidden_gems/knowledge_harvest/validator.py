@@ -9,12 +9,19 @@ from typing import Any, Mapping, Sequence
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
-ANALYSIS_SCHEMA_VERSION = "KNOWLEDGE_ANALYSIS_V1"
-PACKET_SCHEMA_VERSION = "KNOWLEDGE_PACKET_V1"
-PROMPT_VERSION = "KNOWLEDGE_HARVEST_PROMPT_V1"
+ANALYSIS_SCHEMA_VERSION = "KNOWLEDGE_ANALYSIS_V1R2"
+PACKET_SCHEMA_VERSION = "KNOWLEDGE_PACKET_V1R2"
+PROMPT_VERSION = "KNOWLEDGE_HARVEST_PROMPT_V1R2"
 
-DEFAULT_ANALYSIS_SCHEMA = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_analysis_v1.json"
+DEFAULT_ANALYSIS_SCHEMA = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_analysis_v1r2.json"
 DEFAULT_TARGETS_PATH = Path(__file__).resolve().parents[3] / "config" / "knowledge_targets.json"
+
+EVIDENCE_STATUSES = (
+    "DOCUMENTED_ONLY",
+    "PARTIAL_IMPLEMENTATION",
+    "IMPLEMENTED",
+    "IMPLEMENTED_TESTED",
+)
 
 
 class KnowledgeValidationError(ValueError):
@@ -37,10 +44,28 @@ def load_targets(path: Path | None = None) -> dict[str, Any]:
     return payload
 
 
+def evidence_status(
+    refs: Sequence[str],
+    evidence_kinds: Mapping[str, str],
+) -> str:
+    """Derive support maturity from deterministic artifact provenance."""
+
+    kinds = {str(evidence_kinds.get(str(ref), "")) for ref in refs}
+    has_source = "SOURCE" in kinds
+    has_test = "TEST" in kinds
+    if has_source and has_test:
+        return "IMPLEMENTED_TESTED"
+    if has_source:
+        return "IMPLEMENTED"
+    if has_test:
+        return "PARTIAL_IMPLEMENTATION"
+    return "DOCUMENTED_ONLY"
+
+
 def validate_analysis(
     payload: Any,
     *,
-    evidence_ids: Sequence[str],
+    evidence_manifest: Sequence[Mapping[str, Any]],
     target_ids: Sequence[str],
     schema_path: Path | None = None,
 ) -> dict[str, Any]:
@@ -60,7 +85,15 @@ def validate_analysis(
         location = "/".join(str(part) for part in exc.absolute_path) or "<root>"
         raise KnowledgeValidationError(f"schema violation at {location}: {exc.message}") from exc
 
-    allowed_evidence = set(str(value) for value in evidence_ids)
+    evidence_kinds: dict[str, str] = {}
+    for item in evidence_manifest:
+        if not isinstance(item, Mapping):
+            continue
+        evidence_id = str(item.get("id") or "")
+        kind = str(item.get("kind") or "")
+        if evidence_id:
+            evidence_kinds[evidence_id] = kind
+    allowed_evidence = set(evidence_kinds)
     allowed_targets = set(str(value) for value in target_ids)
     seen_pattern_ids: set[str] = set()
 
@@ -69,20 +102,46 @@ def validate_analysis(
         if pattern_id in seen_pattern_ids:
             raise KnowledgeValidationError(f"duplicate pattern id: {pattern_id}")
         seen_pattern_ids.add(pattern_id)
-        _validate_refs(pattern["evidence_refs"], allowed_evidence)
+        refs = pattern["evidence_refs"]
+        _validate_refs(refs, allowed_evidence)
+        _validate_evidence_status(pattern, refs, evidence_kinds, context=f"pattern {pattern_id}")
 
     for lesson in candidate.get("lessons", []):
         _validate_refs(lesson["evidence_refs"], allowed_evidence)
 
     for opportunity in candidate.get("opportunities", []):
-        _validate_refs(opportunity["evidence_refs"], allowed_evidence)
+        refs = opportunity["evidence_refs"]
+        _validate_refs(refs, allowed_evidence)
+        _validate_evidence_status(opportunity, refs, evidence_kinds, context="opportunity")
         target = str(opportunity["target_project_id"])
         if target not in allowed_targets:
             raise KnowledgeValidationError(f"unknown target_project_id: {target}")
-        if opportunity["action"] == "APPLY" and opportunity["risk"] != "LOW":
-            raise KnowledgeValidationError("APPLY opportunities must have LOW risk")
+        if opportunity["action"] == "APPLY":
+            if opportunity["risk"] != "LOW":
+                raise KnowledgeValidationError("APPLY opportunities must have LOW risk")
+            if opportunity["confidence"] != "HIGH":
+                raise KnowledgeValidationError("APPLY opportunities must have HIGH confidence")
+            if opportunity["evidence_status"] != "IMPLEMENTED_TESTED":
+                raise KnowledgeValidationError(
+                    "APPLY opportunities require IMPLEMENTED_TESTED evidence"
+                )
 
     return candidate
+
+
+def _validate_evidence_status(
+    item: Mapping[str, Any],
+    refs: Sequence[str],
+    evidence_kinds: Mapping[str, str],
+    *,
+    context: str,
+) -> None:
+    expected = evidence_status(refs, evidence_kinds)
+    actual = str(item.get("evidence_status") or "")
+    if actual != expected:
+        raise KnowledgeValidationError(
+            f"{context} evidence_status={actual or '<missing>'} but deterministic support is {expected}"
+        )
 
 
 def _validate_refs(values: Sequence[str], allowed: set[str]) -> None:

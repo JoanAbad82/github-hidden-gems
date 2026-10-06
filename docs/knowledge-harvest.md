@@ -14,12 +14,13 @@ The harvester:
 - never clones, installs, imports, builds, tests, or executes external repository code;
 - fences repository text as untrusted data before semantic analysis;
 - stores synthesized concepts rather than copied source code;
-- anchors every evidence item to repository, commit SHA, path, Git blob SHA, and SHA-256 content hash;
+- anchors every evidence item to repository, commit SHA, path, Git blob SHA, SHA-256 content hash, and deterministic provenance kind (`DOCUMENTATION`, `SOURCE`, `TEST`, or `CONFIG`);
 - uses the fixed reuse policy `ADAPT_CONCEPT`.
+- preserves previous schemas/prompts; the current semantic contract is `KNOWLEDGE_ANALYSIS_V1R2` / `KNOWLEDGE_PACKET_V1R2` with `KNOWLEDGE_HARVEST_PROMPT_V1R2`.
 
 ## Output
 
-Each successful repository produces one `KNOWLEDGE_PACKET_V1` containing:
+Each successful repository produces one versioned knowledge packet (currently `KNOWLEDGE_PACKET_V1R2`) containing:
 
 - capabilities;
 - reusable engineering patterns;
@@ -30,12 +31,12 @@ Each successful repository produces one `KNOWLEDGE_PACKET_V1` containing:
 
 Actions are:
 
-- `APPLY` — strong evidence, low risk;
+- `APPLY` — only when evidence deterministically includes both implementation source and tests, confidence is high, and risk is low;
 - `EXPERIMENT` — promising, but local validation is required;
 - `WATCH` — useful signal with insufficient maturity/evidence;
 - `DISCARD` — no useful transfer.
 
-`APPLY` is validator-restricted to `LOW` risk. Nothing is automatically promoted into another project.
+`APPLY` is validator-restricted to `IMPLEMENTED_TESTED` evidence + `HIGH` confidence + `LOW` risk. Nothing is automatically promoted into another project.
 
 Run artifacts:
 

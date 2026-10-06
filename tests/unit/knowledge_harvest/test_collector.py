@@ -64,6 +64,10 @@ def test_collector_pins_commit_and_emits_content_hashes():
     assert source["license_spdx_id"] == "MIT"
     assert source["evidence_manifest"][0]["id"] == "E01"
     assert source["evidence_manifest"][0]["path"] == "README.md"
+    assert source["evidence_manifest"][0]["kind"] == "DOCUMENTATION"
+    kinds = {item["path"]: item["kind"] for item in source["evidence_manifest"]}
+    assert kinds["src/session-state.ts"] == "SOURCE"
+    assert kinds["tests/session-state.test.ts"] == "TEST"
     expected = hashlib.sha256("# Demo\nAgent system.".encode()).hexdigest()
     assert source["evidence_manifest"][0]["content_sha256"] == expected
     assert source["evidence_digest"]

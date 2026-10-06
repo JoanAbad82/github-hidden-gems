@@ -71,6 +71,21 @@ def _is_text_candidate(path: str, size: int) -> bool:
     return name in _CONFIG_NAMES or _extension(path) in _TEXT_EXTENSIONS
 
 
+def _artifact_kind(path: str) -> str:
+    """Classify provenance strength independently from thematic category."""
+
+    lower = path.lower()
+    name = PurePosixPath(path).name.lower()
+    parts = _path_parts(path)
+    if "test" in parts or "tests" in parts or name.startswith("test") or ".test." in name or ".spec." in name:
+        return "TEST"
+    if name in _CONFIG_NAMES:
+        return "CONFIG"
+    if _extension(path) in _SOURCE_EXTENSIONS:
+        return "SOURCE"
+    return "DOCUMENTATION"
+
+
 def _category(path: str) -> str:
     lower = path.lower()
     name = PurePosixPath(path).name.lower()
@@ -124,6 +139,7 @@ def select_evidence_files(
                 "size": size,
                 "blob_sha": blob_sha,
                 "category": _category(path),
+                "kind": _artifact_kind(path),
             }
         )
 
@@ -219,6 +235,7 @@ def collect_repository_evidence(client: Any, full_name: str) -> dict[str, Any]:
             "path": item["path"],
             "blob_sha": item["blob_sha"],
             "category": item["category"],
+            "kind": item["kind"],
             "size": int(item["size"]),
             "content_sha256": content_sha256,
         }
@@ -235,7 +252,7 @@ def collect_repository_evidence(client: Any, full_name: str) -> dict[str, Any]:
         raise ValueError(f"no readable knowledge evidence for {full_name}")
 
     digest_material = "\n".join(
-        f"{item['id']}|{item['path']}|{item['blob_sha']}|{item['content_sha256']}"
+        f"{item['id']}|{item['path']}|{item['blob_sha']}|{item['category']}|{item['kind']}|{item['content_sha256']}"
         for item in manifest
     )
     evidence_digest = hashlib.sha256(digest_material.encode("utf-8")).hexdigest()
