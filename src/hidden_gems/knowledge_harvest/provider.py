@@ -18,7 +18,7 @@ from .validator import (
     validate_analysis,
 )
 
-DEFAULT_PROMPT_PATH = "prompts/knowledge_harvest_v1.txt"
+DEFAULT_PROMPT_PATH = "prompts/knowledge_harvest_v1r2.txt"
 KNOWLEDGE_MAX_OUTPUT_TOKENS = 3200
 
 
@@ -117,8 +117,8 @@ class KnowledgeDeepSeekProvider:
             raise KnowledgeProviderError(
                 f"missing API key in environment variable {self._llm.api_key_env_var}"
             )
-        evidence_ids = [
-            str(item["id"])
+        evidence_manifest = [
+            dict(item)
             for item in evidence.get("source", {}).get("evidence_manifest", [])
             if isinstance(item, Mapping) and item.get("id")
         ]
@@ -187,7 +187,7 @@ class KnowledgeDeepSeekProvider:
             try:
                 result = validate_analysis(
                     content,
-                    evidence_ids=evidence_ids,
+                    evidence_manifest=evidence_manifest,
                     target_ids=self._target_ids,
                 )
             except KnowledgeValidationError as exc:

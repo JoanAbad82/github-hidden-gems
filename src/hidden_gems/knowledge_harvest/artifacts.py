@@ -54,6 +54,8 @@ def write_harvest_artifacts(
         "expected_benefit",
         "integration_cost",
         "risk",
+        "confidence",
+        "evidence_status",
         "evidence_refs",
         "rationale",
     )
@@ -75,6 +77,8 @@ def write_harvest_artifacts(
                     "expected_benefit": opportunity["expected_benefit"],
                     "integration_cost": opportunity["integration_cost"],
                     "risk": opportunity["risk"],
+                    "confidence": opportunity["confidence"],
+                    "evidence_status": opportunity["evidence_status"],
                     "evidence_refs": ";".join(sorted(opportunity["evidence_refs"])),
                     "rationale": opportunity["rationale"],
                 }
