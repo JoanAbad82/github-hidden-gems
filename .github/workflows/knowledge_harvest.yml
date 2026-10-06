@@ -1,0 +1,74 @@
+name: knowledge-harvest
+
+on:
+  workflow_dispatch:
+    inputs:
+      repositories:
+        description: "Comma-separated public repositories (owner/name), maximum 5"
+        required: true
+        default: "gvergnaud/bise,theCodeDrift/seamux,VisionCraft3r/ultimate-pi"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  harvest:
+    name: bounded knowledge harvest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Validate configuration
+        run: hidden-gems validate-config --root .
+
+      - name: Harvest bounded static knowledge
+        env:
+          REPOSITORIES: ${{ inputs.repositories }}
+        run: |
+          set -euo pipefail
+          IFS=',' read -ra REPOS <<< "$REPOSITORIES"
+          args=()
+          count=0
+          for raw in "${REPOS[@]}"; do
+            repo="$(echo "$raw" | xargs)"
+            if [ -z "$repo" ]; then
+              continue
+            fi
+            count=$((count + 1))
+            if [ "$count" -gt 5 ]; then
+              echo "knowledge harvest accepts at most five repositories" >&2
+              exit 2
+            fi
+            args+=(--repo "$repo")
+          done
+          hidden-gems harvest --root . "${args[@]}"
+
+      - name: Upload knowledge packets
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-harvest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/knowledge-harvest/
+          if-no-files-found: error
+          retention-days: 90
