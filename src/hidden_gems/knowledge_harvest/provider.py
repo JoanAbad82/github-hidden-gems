@@ -19,6 +19,7 @@ from .validator import (
 )
 
 DEFAULT_PROMPT_PATH = "prompts/knowledge_harvest_v1.txt"
+KNOWLEDGE_MAX_OUTPUT_TOKENS = 3200
 
 
 class KnowledgeProviderError(RuntimeError):
@@ -106,7 +107,7 @@ class KnowledgeDeepSeekProvider:
             "model": self.model,
             "messages": messages,
             "temperature": 0,
-            "max_tokens": int(self._llm.max_output_tokens_per_repo),
+            "max_tokens": max(int(self._llm.max_output_tokens_per_repo), KNOWLEDGE_MAX_OUTPUT_TOKENS),
             "response_format": {"type": "json_object"},
             "stream": False,
         }
@@ -201,7 +202,14 @@ class KnowledgeDeepSeekProvider:
                     validation_result="VALIDATION_ERROR",
                 )
                 last_error = exc
-                feedback = str(exc)
+                if str(finish_reason or "").lower() == "length":
+                    feedback = (
+                        "The previous response hit the output token limit. Return a much more concise "
+                        "object with no more than 6 patterns, 6 lessons, 6 opportunities, and 6 limitations. "
+                        "Shorten descriptions and do not repeat the same idea across sections."
+                    )
+                else:
+                    feedback = str(exc)
                 continue
 
             self.budget.record_attempt(

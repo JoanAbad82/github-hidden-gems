@@ -23,6 +23,7 @@ QUALITY
 - Reward evidence that is backed by implementation plus tests.
 - Flag when a useful idea is documented but not proven implemented.
 - Prefer transferable invariants: state ownership, recovery, queues, routing, safety gates, validation, observability, concurrency, artifact contracts.
+- Be concise: return at most 6 patterns, 6 lessons, 6 opportunities, and 6 limitations; avoid repeating the same idea across sections.
 - An APPLY opportunity should require low risk and strong evidence.
 - EXPERIMENT is the default for promising ideas that need local validation.
 - WATCH is for immature or weakly evidenced ideas.

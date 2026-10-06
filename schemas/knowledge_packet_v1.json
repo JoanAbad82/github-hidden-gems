@@ -24,27 +24,27 @@
     "reuse_policy": {"enum": ["ADAPT_CONCEPT"]},
     "capabilities": {
       "type": "array",
-      "maxItems": 12,
+      "maxItems": 8,
       "items": {"type": "string", "minLength": 1, "maxLength": 220}
     },
     "patterns": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 6,
       "items": {"$ref": "knowledge_analysis_v1.json#/$defs/pattern"}
     },
     "lessons": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 6,
       "items": {"$ref": "knowledge_analysis_v1.json#/$defs/lesson"}
     },
     "opportunities": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 6,
       "items": {"$ref": "knowledge_analysis_v1.json#/$defs/opportunity"}
     },
     "limitations": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 6,
       "items": {"type": "string", "minLength": 1, "maxLength": 260}
     }
   },
