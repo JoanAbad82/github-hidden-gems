@@ -1,9 +1,16 @@
 {
-  "schema_version": "1.0",
+  "$schema": "https://raw.githubusercontent.com/JoanAbad82/JoanAbad82/main/schemas/agent-task-contract.schema.json",
+  "schema_version": "1.1",
   "repository": "JoanAbad82/github-hidden-gems",
   "purpose": "machine-readable discovery of bounded agent-ready research work",
   "canonical_task_surface": "JoanAbad82/github-hidden-gems-research-intake",
   "live_query": "https://github.com/JoanAbad82/github-hidden-gems-research-intake/issues?q=is%3Aissue+is%3Aopen+label%3Aagent-ready",
+  "capabilities": [
+    "falsification",
+    "adversarial-fixture",
+    "independent-reproduction",
+    "evidence-boundary-review"
+  ],
   "accepted_task_types": [
     "falsification",
     "adversarial-fixture",
@@ -20,7 +27,25 @@
       "evidence/provenance statement",
       "known limitations"
     ],
-    "default_validation": "python -m pytest -m \"not live\""
+    "default_validation": "python -m pytest -m \"not live\"",
+    "objective": "Produce bounded, independently reproducible evidence that can falsify or strengthen a GitHub Hidden Gems research claim without modifying production behavior.",
+    "allowed_actions": [
+      "read public repository material",
+      "create synthetic or minimal fixtures in the Research Intake surface",
+      "submit reproducible critiques, falsifiers, or evidence-boundary analyses"
+    ],
+    "forbidden_actions": [
+      "write directly to production from an external research task",
+      "execute code from untrusted external repositories",
+      "weaken validation or trust boundaries to make a fixture pass",
+      "treat Research Intake or MoltBook material as production authority"
+    ],
+    "expected_inputs": [
+      "bounded claim under test",
+      "public or synthetic evidence",
+      "reproduction context sufficient for an independent reviewer"
+    ],
+    "completion_condition": "The artifact contains a deterministic assertion or falsifier and enough provenance for an independent reviewer to reproduce the result."
   },
   "labels": {
     "discovery": "agent-ready",
