@@ -6,9 +6,12 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from ..common.logging import get_logger
 from .artifacts import write_harvest_artifacts
 from .collector import collect_repository_evidence
 from .validator import PACKET_SCHEMA_VERSION
+
+LOGGER = get_logger("hidden_gems.knowledge_harvest")
 
 
 def repositories_from_candidates(path: Path | str, *, top: int = 3) -> list[str]:
@@ -51,21 +54,29 @@ def harvest_repositories(
         key=str.lower,
     )
     for full_name in unique_repositories:
+        LOGGER.info("knowledge harvest start repo=%s", full_name)
         try:
             evidence = collect_repository_evidence(github, full_name)
             analysis = provider.analyze(evidence)
-            packets.append(
-                {
-                    "schema_version": PACKET_SCHEMA_VERSION,
-                    "prompt_version": provider.prompt_version,
-                    "model": provider.model,
-                    "source": evidence["source"],
-                    "reuse_policy": "ADAPT_CONCEPT",
-                    **analysis,
-                }
+            packet = {
+                "schema_version": PACKET_SCHEMA_VERSION,
+                "prompt_version": provider.prompt_version,
+                "model": provider.model,
+                "source": evidence["source"],
+                "reuse_policy": "ADAPT_CONCEPT",
+                **analysis,
+            }
+            packets.append(packet)
+            LOGGER.info(
+                "knowledge harvest success repo=%s patterns=%d opportunities=%d evidence=%s",
+                full_name,
+                len(packet.get("patterns", [])),
+                len(packet.get("opportunities", [])),
+                str(evidence["source"].get("evidence_digest") or "")[:12],
             )
         except Exception as exc:
             errors.append(f"{full_name}:{type(exc).__name__}:{' '.join(str(exc).split())[:220]}")
+            LOGGER.warning("knowledge harvest failed repo=%s error=%s", full_name, type(exc).__name__)
 
     usage = (
         dict(provider.budget.snapshot())
