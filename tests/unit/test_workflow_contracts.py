@@ -141,6 +141,14 @@ def test_production_workflow_has_timeout(discovery_workflow: dict):
         assert int(job["timeout-minutes"]) > 0
 
 
+def test_production_workflow_uploads_deterministic_run_artifacts():
+    text = (WORKFLOWS / "daily_discovery.yml").read_text(encoding="utf-8")
+    assert "actions/upload-artifact@v4" in text
+    assert "path: app/artifacts/" in text
+    assert "if-no-files-found: error" in text
+    assert "retention-days: 90" in text
+
+
 def test_test_workflow_runs_config_unit_and_integration():
     text = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
     assert "hidden-gems validate-config" in text

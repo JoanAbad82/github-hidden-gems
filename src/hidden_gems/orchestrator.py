@@ -31,6 +31,7 @@ from .reporting.fingerprints import (
     new_release_fingerprint,
     report_fingerprint,
 )
+from .reporting.artifacts import ScoredCandidateArtifact, write_run_artifacts
 from .reporting.markdown import build_report, report_labels
 from .reporting.selector import make_notification_decision, select_report_candidates
 from .scoring.hidden_gem_v1 import compute_final_score
@@ -77,6 +78,8 @@ def run_pipeline(
     report = ""
     fingerprint: str | None = None
     issue = None
+    selected: list[SelectedFinding] = []
+    artifact_candidates: list[ScoredCandidateArtifact] = []
     llm_budget = getattr(llm, "budget", None)
     if llm_budget is None:
         llm_budget = LLMBudget(
@@ -226,6 +229,15 @@ def run_pipeline(
                 ),
                 config=config,
             )
+            artifact_candidates.append(
+                ScoredCandidateArtifact(
+                    candidate=candidate,
+                    light=analysis,
+                    deep=deep,
+                    score=score,
+                    decision=decision,
+                )
+            )
             if not decision.notify:
                 continue
             counts["notifiable"] += 1
@@ -276,6 +288,22 @@ def run_pipeline(
         usage["llm_candidates_used"] = int(llm_candidates_enriched)
         usage["counts"] = {key: int(value) for key, value in counts.items()}
         context.usage.update(usage)
+        try:
+            json_path, csv_path = write_run_artifacts(
+                config.root,
+                context=context,
+                result=result,
+                counts=counts,
+                errors=errors,
+                candidates=artifact_candidates,
+                selected=selected,
+            )
+            LOGGER.info("run artifacts json=%s csv=%s", json_path, csv_path)
+        except Exception as exc:
+            errors.append(f"artifacts:{type(exc).__name__}")
+            if result in {"SUCCESS", "SUCCESS_NO_FINDINGS"}:
+                result = "PARTIAL_SUCCESS"
+            LOGGER.error("artifact export failed: %s", type(exc).__name__)
         summary = RunSummary(
             run_id=context.run_id,
             result=result,

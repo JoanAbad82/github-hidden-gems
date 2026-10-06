@@ -10,3 +10,4 @@ _RUN_OUTPUT/
 .worktrees/
 state/
 backups/
+artifacts/
