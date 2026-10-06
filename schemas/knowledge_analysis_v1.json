@@ -9,27 +9,27 @@
   "properties": {
     "capabilities": {
       "type": "array",
-      "maxItems": 12,
+      "maxItems": 8,
       "items": {"type": "string", "minLength": 1, "maxLength": 220}
     },
     "patterns": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 6,
       "items": {"$ref": "#/$defs/pattern"}
     },
     "lessons": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 6,
       "items": {"$ref": "#/$defs/lesson"}
     },
     "opportunities": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 6,
       "items": {"$ref": "#/$defs/opportunity"}
     },
     "limitations": {
       "type": "array",
-      "maxItems": 10,
+      "maxItems": 6,
       "items": {"type": "string", "minLength": 1, "maxLength": 260}
     }
   },
