@@ -31,6 +31,9 @@ def test_dry_run_pipeline_completes_and_persists_without_publishing(app_config, 
         assert summary.issue is None
         assert store.integrity_check() is True
         assert store.get_repository(7001) is not None
+        artifact_dir = app_config.root / "artifacts" / summary.run_id
+        assert (artifact_dir / "candidates.json").is_file()
+        assert (artifact_dir / "candidates.csv").is_file()
     finally:
         store.close()
 

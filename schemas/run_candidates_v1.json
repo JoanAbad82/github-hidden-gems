@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openutilitylab.com/schemas/run_candidates_v1.json",
+  "title": "GitHub Hidden Gems Run Candidates V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run", "candidate_count", "reported_count", "candidates"],
+  "properties": {
+    "schema_version": {"const": "RUN_CANDIDATES_V1"},
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "started_at",
+        "dry_run",
+        "config_version",
+        "score_version",
+        "prompt_version",
+        "result",
+        "counts",
+        "errors"
+      ],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "started_at": {"type": "string", "minLength": 1},
+        "dry_run": {"type": "boolean"},
+        "config_version": {"type": "string"},
+        "score_version": {"type": "string"},
+        "prompt_version": {"type": "string"},
+        "result": {"type": "string"},
+        "counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "errors": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "candidate_count": {"type": "integer", "minimum": 0},
+    "reported_count": {"type": "integer", "minimum": 0},
+    "candidates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/candidate"}
+    }
+  },
+  "$defs": {
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "github_repo_id",
+        "owner",
+        "name",
+        "full_name",
+        "html_url",
+        "description",
+        "stars",
+        "created_at",
+        "updated_at",
+        "pushed_at",
+        "primary_language",
+        "topics",
+        "discovery_channels",
+        "matched_query_ids"
+      ],
+      "properties": {
+        "github_repo_id": {"type": "integer", "minimum": 1},
+        "owner": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "full_name": {"type": "string", "minLength": 3},
+        "html_url": {"type": "string", "pattern": "^https://github\\.com/"},
+        "description": {"$ref": "#/$defs/nullableString"},
+        "stars": {"type": "integer", "minimum": 0},
+        "created_at": {"$ref": "#/$defs/nullableString"},
+        "updated_at": {"$ref": "#/$defs/nullableString"},
+        "pushed_at": {"$ref": "#/$defs/nullableString"},
+        "primary_language": {"$ref": "#/$defs/nullableString"},
+        "topics": {"type": "array", "items": {"type": "string"}},
+        "discovery_channels": {"type": "array", "items": {"type": "string"}},
+        "matched_query_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "relevance",
+        "quality",
+        "activity",
+        "visibility",
+        "novelty",
+        "originality",
+        "intersection",
+        "confidence",
+        "score_version"
+      ],
+      "properties": {
+        "total": {"type": "integer", "minimum": 0, "maximum": 100},
+        "relevance": {"type": "integer", "minimum": 0, "maximum": 20},
+        "quality": {"type": "integer", "minimum": 0, "maximum": 20},
+        "activity": {"type": "integer", "minimum": 0, "maximum": 20},
+        "visibility": {"type": "integer", "minimum": 0, "maximum": 15},
+        "novelty": {"type": "integer", "minimum": 0, "maximum": 10},
+        "originality": {"type": "integer", "minimum": 0, "maximum": 10},
+        "intersection": {"type": "integer", "minimum": 0, "maximum": 5},
+        "confidence": {"enum": ["HIGH", "MEDIUM", "LOW"]},
+        "score_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "notify",
+        "notification_type",
+        "trigger_fingerprint",
+        "previous_score",
+        "current_score"
+      ],
+      "properties": {
+        "notify": {"type": "boolean"},
+        "notification_type": {"type": ["string", "null"]},
+        "trigger_fingerprint": {"type": ["string", "null"]},
+        "previous_score": {"type": ["integer", "null"]},
+        "current_score": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "lightAnalysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detected_areas",
+        "activity_level",
+        "quality_signals",
+        "negative_signals",
+        "latest_release_tag",
+        "latest_release_at",
+        "latest_relevant_activity_at",
+        "readme_hash",
+        "tree_hash",
+        "dependency_hash",
+        "relevant_content_hash",
+        "evidence"
+      ],
+      "properties": {
+        "detected_areas": {"type": "array", "items": {"type": "string"}},
+        "activity_level": {"type": "string"},
+        "quality_signals": {"type": "array", "items": {"type": "string"}},
+        "negative_signals": {"type": "array", "items": {"type": "string"}},
+        "latest_release_tag": {"$ref": "#/$defs/nullableString"},
+        "latest_release_at": {"$ref": "#/$defs/nullableString"},
+        "latest_relevant_activity_at": {"$ref": "#/$defs/nullableString"},
+        "readme_hash": {"type": "string"},
+        "tree_hash": {"type": "string"},
+        "dependency_hash": {"type": "string"},
+        "relevant_content_hash": {"type": "string"},
+        "evidence": {"type": "object"}
+      }
+    },
+    "deepAnalysis": {
+      "type": ["object", "null"],
+      "properties": {
+        "status": {"type": "string"},
+        "source": {"type": "string"},
+        "confidence": {"type": "string"},
+        "relevance_suggestion": {"type": ["integer", "null"]},
+        "originality_suggestion": {"type": ["integer", "null"]},
+        "summary": {"$ref": "#/$defs/nullableString"},
+        "why_interesting": {"$ref": "#/$defs/nullableString"},
+        "risks": {"type": "array", "items": {"type": "string"}},
+        "evidence": {"type": "object"}
+      },
+      "required": [
+        "status",
+        "source",
+        "confidence",
+        "relevance_suggestion",
+        "originality_suggestion",
+        "summary",
+        "why_interesting",
+        "risks",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_rank",
+        "selected_for_report",
+        "repository",
+        "score",
+        "notification",
+        "light_analysis",
+        "deep_analysis"
+      ],
+      "properties": {
+        "report_rank": {"type": ["integer", "null"], "minimum": 1},
+        "selected_for_report": {"type": "boolean"},
+        "repository": {"$ref": "#/$defs/repository"},
+        "score": {"$ref": "#/$defs/score"},
+        "notification": {"$ref": "#/$defs/notification"},
+        "light_analysis": {"$ref": "#/$defs/lightAnalysis"},
+        "deep_analysis": {"$ref": "#/$defs/deepAnalysis"}
+      }
+    }
+  }
+}

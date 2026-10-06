@@ -103,6 +103,15 @@ jobs:
             hidden-gems run --root . --db state/history.sqlite3 --live
           fi
 
+      - name: Upload deterministic run artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hidden-gems-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: app/artifacts/
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Emit dry-run diagnostics
         if: ${{ steps.mode.outputs.dry_run == 'true' }}
         working-directory: app
