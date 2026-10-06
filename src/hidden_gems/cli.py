@@ -104,6 +104,36 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-deep", type=int, default=None, help="lower the deep-analysis budget")
     run.add_argument("--max-llm-calls", type=int, default=None, help="lower the LLM call budget")
 
+    harvest = subparsers.add_parser(
+        "harvest", help="extract reusable technical knowledge from selected public repositories"
+    )
+    _add_root(harvest)
+    harvest.add_argument(
+        "--repo",
+        dest="repositories",
+        action="append",
+        default=[],
+        help="public repository in owner/name form; repeat up to five times",
+    )
+    harvest.add_argument(
+        "--from-artifacts",
+        dest="from_artifacts",
+        default=None,
+        help="RUN_CANDIDATES_V1 candidates.json file or directory containing one",
+    )
+    harvest.add_argument(
+        "--top",
+        type=int,
+        default=3,
+        help="maximum selected repositories read from --from-artifacts (default: 3)",
+    )
+    harvest.add_argument(
+        "--output",
+        dest="output_path",
+        default=None,
+        help="output directory override",
+    )
+
     validation = subparsers.add_parser(
         "validation-status", help="evaluate the seven-cycle V1 acceptance gate (read-only)"
     )
@@ -350,6 +380,85 @@ def write_run_manifest(db_path, summary, *, manifest_path=None):
     )
 
 
+def cmd_harvest(args: argparse.Namespace) -> int:
+    """Extract bounded, machine-readable technical knowledge without executing external code."""
+
+    try:
+        config = load_config(resolve_root(args))
+    except ConfigError as exc:
+        print("RESULT=FAILED_CONFIGURATION")
+        print(f"ERROR={exc}")
+        return 2
+
+    from .knowledge_harvest.provider import KnowledgeDeepSeekProvider
+    from .knowledge_harvest.runner import harvest_repositories, repositories_from_candidates
+    from .github.client import GitHubClient
+    from .llm.base import LLMBudget
+
+    repositories = list(getattr(args, "repositories", []) or [])
+    from_artifacts = getattr(args, "from_artifacts", None)
+    top = max(1, min(5, int(getattr(args, "top", 3) or 3)))
+    if from_artifacts:
+        try:
+            repositories.extend(repositories_from_candidates(from_artifacts, top=top))
+        except Exception as exc:
+            print("RESULT=FAILED_CONFIGURATION")
+            print(f"ERROR=invalid candidates artifact: {type(exc).__name__}")
+            return 2
+
+    repositories = sorted({str(value).strip() for value in repositories if str(value).strip()})
+    if not repositories:
+        print("RESULT=FAILED_CONFIGURATION")
+        print("ERROR=harvest needs at least one --repo or --from-artifacts")
+        return 2
+    if len(repositories) > 5:
+        print("RESULT=FAILED_CONFIGURATION")
+        print("ERROR=knowledge harvest is bounded to five repositories per run")
+        return 2
+
+    run_id = f"KH-{utcnow().strftime('%Y%m%dT%H%M%SZ')}"
+    output = (
+        Path(args.output_path).expanduser().resolve()
+        if getattr(args, "output_path", None)
+        else config.root / "artifacts" / "knowledge-harvest" / run_id
+    )
+    github = GitHubClient(config, os.environ.get("GITHUB_TOKEN"))
+    max_calls = len(repositories) * (int(config.llm.max_retries_per_candidate) + 1)
+    provider = KnowledgeDeepSeekProvider(
+        config,
+        budget=LLMBudget(
+            max_calls=max(1, max_calls),
+            max_budget=float(config.llm.max_llm_budget_per_run),
+        ),
+    )
+    try:
+        result = harvest_repositories(
+            github=github,
+            provider=provider,
+            repositories=repositories,
+            output_dir=output,
+            run_id=run_id,
+        )
+    finally:
+        provider.close()
+        github.close()
+
+    packets = result["packets"]
+    opportunities = sum(len(packet.get("opportunities", [])) for packet in packets)
+    print(f"KNOWLEDGE_PACKETS={len(packets)}")
+    print(f"KNOWLEDGE_OPPORTUNITIES={opportunities}")
+    print(f"KNOWLEDGE_OUTPUT={result['json_path']}")
+    if not packets:
+        print("RESULT=KNOWLEDGE_HARVEST_FAILED")
+        return 1
+    if result["errors"]:
+        print(f"KNOWLEDGE_ERRORS={len(result['errors'])}")
+        print("RESULT=KNOWLEDGE_HARVEST_PARTIAL")
+        return 0
+    print("RESULT=KNOWLEDGE_HARVEST_SUCCESS")
+    return 0
+
+
 def cmd_validation_status(args: argparse.Namespace) -> int:
     """Evaluate the seven-cycle acceptance gate from persisted evidence only."""
 
@@ -435,6 +544,7 @@ def main(argv: list[str] | None = None) -> int:
         "migrate": cmd_migrate,
         "db-check": cmd_db_check,
         "run": cmd_run,
+        "harvest": cmd_harvest,
         "validation-status": cmd_validation_status,
     }
     handler = handlers.get(args.command)

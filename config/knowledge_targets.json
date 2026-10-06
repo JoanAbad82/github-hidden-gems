@@ -1,0 +1,42 @@
+{
+  "schema_version": "KNOWLEDGE_TARGETS_V1",
+  "targets": [
+    {
+      "project_id": "GITHUB_PARA_IA",
+      "label": "GitHub para IA",
+      "needs": [
+        "agent orchestration",
+        "safe autonomous operation",
+        "state recovery and resumability",
+        "machine-readable interfaces",
+        "tool routing and permissions",
+        "observability and reproducibility"
+      ]
+    },
+    {
+      "project_id": "github-hidden-gems",
+      "label": "GitHub Hidden Gems",
+      "repository": "JoanAbad82/github-hidden-gems",
+      "needs": [
+        "evidence provenance",
+        "deterministic pipelines",
+        "ranking quality",
+        "safe analysis of untrusted repositories",
+        "failure recovery",
+        "artifact contracts"
+      ]
+    },
+    {
+      "project_id": "github-hidden-gems-research-intake",
+      "label": "GitHub Hidden Gems Research Intake",
+      "repository": "JoanAbad82/github-hidden-gems-research-intake",
+      "needs": [
+        "falsification workflows",
+        "adversarial evidence",
+        "research triage",
+        "trust boundaries",
+        "reproducible experiments"
+      ]
+    }
+  ]
+}

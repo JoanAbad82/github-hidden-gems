@@ -87,6 +87,12 @@ Discovery Rate of at least 70%. Evidence so far is recorded in
 Implementation is developed in an isolated worktree/branch and is validated
 before any merge or push.
 
+## Knowledge harvest
+
+Selected repositories can be inspected with the separate bounded `KNOWLEDGE_HARVEST_V1` pipeline. It extracts evidence-backed engineering patterns and routes potential reuse as `APPLY`, `EXPERIMENT`, `WATCH`, or `DISCARD` opportunities without executing external code or changing `HIDDEN_GEM_SCORE_V1`.
+
+See [docs/knowledge-harvest.md](docs/knowledge-harvest.md).
+
 ## Machine-readable / native agent surface
 
 - `PROJECT_STATUS.json` exposes the current acceptance state, canonical sources, validation commands, research entry point, and production/research boundaries.
