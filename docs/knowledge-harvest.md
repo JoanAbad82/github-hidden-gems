@@ -16,7 +16,7 @@ The harvester:
 - stores synthesized concepts rather than copied source code;
 - anchors every evidence item to repository, commit SHA, path, Git blob SHA, SHA-256 content hash, and deterministic provenance kind (`DOCUMENTATION`, `SOURCE`, `TEST`, or `CONFIG`);
 - uses the fixed reuse policy `ADAPT_CONCEPT`.
-- preserves previous schemas/prompts; the current semantic contract is `KNOWLEDGE_ANALYSIS_V1R2` / `KNOWLEDGE_PACKET_V1R2` with `KNOWLEDGE_HARVEST_PROMPT_V1R2`.
+- preserves previous schemas/prompts; the current semantic contract is `KNOWLEDGE_ANALYSIS_V1R2` / `KNOWLEDGE_PACKET_V1R2` with `KNOWLEDGE_HARVEST_PROMPT_V1R3`. Evidence maturity is recomputed deterministically by the validator rather than trusted from model output.
 
 ## Output
 

@@ -84,11 +84,11 @@ def test_validator_rejects_unknown_evidence_ref():
         validate(candidate)
 
 
-def test_validator_rejects_false_evidence_status():
+def test_validator_canonicalizes_false_evidence_status():
     candidate = payload()
     candidate["patterns"][0]["evidence_status"] = "IMPLEMENTED_TESTED"
-    with pytest.raises(KnowledgeValidationError, match="deterministic support"):
-        validate(candidate)
+    result = validate(candidate)
+    assert result["patterns"][0]["evidence_status"] == "IMPLEMENTED"
 
 
 def test_validator_rejects_unknown_target():
@@ -113,11 +113,12 @@ def test_apply_requires_source_and_test_evidence():
         validate(candidate)
 
 
-def test_apply_accepts_high_confidence_source_plus_test():
+def test_apply_uses_canonical_source_plus_test_status():
     candidate = payload()
     opportunity = candidate["opportunities"][0]
     opportunity["action"] = "APPLY"
     opportunity["evidence_refs"] = ["E01", "E02"]
-    opportunity["evidence_status"] = "IMPLEMENTED_TESTED"
+    opportunity["evidence_status"] = "DOCUMENTED_ONLY"
     result = validate(candidate)
     assert result["opportunities"][0]["action"] == "APPLY"
+    assert result["opportunities"][0]["evidence_status"] == "IMPLEMENTED_TESTED"

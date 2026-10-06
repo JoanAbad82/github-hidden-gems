@@ -11,7 +11,7 @@ from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
 ANALYSIS_SCHEMA_VERSION = "KNOWLEDGE_ANALYSIS_V1R2"
 PACKET_SCHEMA_VERSION = "KNOWLEDGE_PACKET_V1R2"
-PROMPT_VERSION = "KNOWLEDGE_HARVEST_PROMPT_V1R2"
+PROMPT_VERSION = "KNOWLEDGE_HARVEST_PROMPT_V1R3"
 
 DEFAULT_ANALYSIS_SCHEMA = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_analysis_v1r2.json"
 DEFAULT_TARGETS_PATH = Path(__file__).resolve().parents[3] / "config" / "knowledge_targets.json"
@@ -104,7 +104,7 @@ def validate_analysis(
         seen_pattern_ids.add(pattern_id)
         refs = pattern["evidence_refs"]
         _validate_refs(refs, allowed_evidence)
-        _validate_evidence_status(pattern, refs, evidence_kinds, context=f"pattern {pattern_id}")
+        _canonicalize_evidence_status(pattern, refs, evidence_kinds)
 
     for lesson in candidate.get("lessons", []):
         _validate_refs(lesson["evidence_refs"], allowed_evidence)
@@ -112,7 +112,7 @@ def validate_analysis(
     for opportunity in candidate.get("opportunities", []):
         refs = opportunity["evidence_refs"]
         _validate_refs(refs, allowed_evidence)
-        _validate_evidence_status(opportunity, refs, evidence_kinds, context="opportunity")
+        _canonicalize_evidence_status(opportunity, refs, evidence_kinds)
         target = str(opportunity["target_project_id"])
         if target not in allowed_targets:
             raise KnowledgeValidationError(f"unknown target_project_id: {target}")
@@ -129,19 +129,16 @@ def validate_analysis(
     return candidate
 
 
-def _validate_evidence_status(
+def _canonicalize_evidence_status(
     item: Mapping[str, Any],
     refs: Sequence[str],
     evidence_kinds: Mapping[str, str],
-    *,
-    context: str,
 ) -> None:
+    """Replace the model's maturity label with the deterministic provenance result."""
+
     expected = evidence_status(refs, evidence_kinds)
-    actual = str(item.get("evidence_status") or "")
-    if actual != expected:
-        raise KnowledgeValidationError(
-            f"{context} evidence_status={actual or '<missing>'} but deterministic support is {expected}"
-        )
+    if isinstance(item, dict):
+        item["evidence_status"] = expected
 
 
 def _validate_refs(values: Sequence[str], allowed: set[str]) -> None:

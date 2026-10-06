@@ -38,7 +38,7 @@ def test_repositories_from_candidates_uses_report_rank(tmp_path):
 def _packet(repo: str, action: str = "EXPERIMENT"):
     return {
         "schema_version": "KNOWLEDGE_PACKET_V1R2",
-        "prompt_version": "KNOWLEDGE_HARVEST_PROMPT_V1R2",
+        "prompt_version": "KNOWLEDGE_HARVEST_PROMPT_V1R3",
         "model": "deepseek-chat",
         "source": {
             "github_repo_id": 1,

@@ -18,7 +18,7 @@ from .validator import (
     validate_analysis,
 )
 
-DEFAULT_PROMPT_PATH = "prompts/knowledge_harvest_v1r2.txt"
+DEFAULT_PROMPT_PATH = "prompts/knowledge_harvest_v1r3.txt"
 KNOWLEDGE_MAX_OUTPUT_TOKENS = 3200
 
 
