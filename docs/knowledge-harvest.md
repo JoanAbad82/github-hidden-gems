@@ -94,9 +94,11 @@ Target-fit artifacts:
 - `knowledge_target_fit.csv`
 - `target-fit/targets/*.json`
 
-The semantic response contract is `KNOWLEDGE_TARGET_FIT_ANALYSIS_V1`; persisted runs use `KNOWLEDGE_TARGET_FIT_RUN_V1` with `TARGET_FIT_PROMPT_V1R1`. Inputs are pinned by transfer-plan id and target commit/evidence digest. No target repository is cloned, built, executed, or modified.
+The semantic response contract is `KNOWLEDGE_TARGET_FIT_ANALYSIS_V1`; persisted runs use `KNOWLEDGE_TARGET_FIT_RUN_V1` with `TARGET_FIT_PROMPT_V1R2`. Inputs are pinned by transfer-plan id and target commit/evidence digest. No target repository is cloned, built, executed, or modified.
 
 A normal `hidden-gems harvest` now performs harvest → deterministic transfer plan → target-fit gate under one shared LLM cost budget. A downstream implementation step still requires an explicit transfer/experiment action.
+
+The manual GitHub Actions workflow `knowledge-target-fit` can replay only the target-fit gate from a prior knowledge-harvest run id. This reuses the frozen transfer plan while evaluating it against the current target repository heads, so target-fit logic can be revised or target projects can evolve without repeating source harvest.
 
 ## Manual pilot
 

@@ -42,7 +42,13 @@ def targeted_probe_workflow() -> dict:
 
 def test_all_workflow_files_parse():
     files = sorted(path.name for path in WORKFLOWS.glob("*.yml"))
-    assert files == ["daily_discovery.yml", "knowledge_harvest.yml", "targeted_llm_probe.yml", "tests.yml"]
+    assert files == [
+        "daily_discovery.yml",
+        "knowledge_harvest.yml",
+        "knowledge_target_fit.yml",
+        "targeted_llm_probe.yml",
+        "tests.yml",
+    ]
 
 
 def test_no_pull_request_target_anywhere():
@@ -96,6 +102,21 @@ def test_knowledge_harvest_is_manual_read_only():
     assert "hidden-gems harvest" in text
     assert "DEEPSEEK_API_KEY" in text
     assert "actions/upload-artifact@v4" in text
+    assert "issues: write" not in text
+    assert "contents: write" not in text
+
+
+def test_target_fit_replay_is_manual_and_read_only():
+    workflow = load_workflow("knowledge_target_fit.yml")
+    triggers = trigger_block(workflow)
+    assert set(triggers) == {"workflow_dispatch"}
+    assert workflow["permissions"] == {"contents": "read", "actions": "read"}
+    job = workflow["jobs"]["fit"]
+    assert job["permissions"] == {"contents": "read", "actions": "read"}
+    text = (WORKFLOWS / "knowledge_target_fit.yml").read_text(encoding="utf-8")
+    assert "hidden-gems fit-knowledge" in text
+    assert "gh run download" in text
+    assert "DEEPSEEK_API_KEY" in text
     assert "issues: write" not in text
     assert "contents: write" not in text
 

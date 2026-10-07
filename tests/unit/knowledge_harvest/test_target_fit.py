@@ -183,7 +183,7 @@ def test_write_target_fit_artifacts_is_deterministic(tmp_path):
         "fit_id": "KFG-" + "1" * 16,
         "plan_id": "KTP-" + "2" * 16,
         "source_run_id": "KH-TEST",
-        "prompt_version": "TARGET_FIT_PROMPT_V1R1",
+        "prompt_version": "TARGET_FIT_PROMPT_V1R2",
         "model": "deepseek-chat",
         "target_snapshots": [],
         "classification_counts": {
@@ -268,7 +268,7 @@ def test_fit_transfer_plan_batches_by_target(monkeypatch, tmp_path):
     )
 
     class Provider:
-        prompt_version = "TARGET_FIT_PROMPT_V1R1"
+        prompt_version = "TARGET_FIT_PROMPT_V1R2"
         model = "fake"
         budget = SimpleNamespace(snapshot=lambda: {})
 
@@ -416,5 +416,5 @@ def test_target_fit_payload_compacts_large_target_evidence(app_config):
         feedback=None,
     )
 
-    assert provider.prompt_version == "TARGET_FIT_PROMPT_V1R1"
+    assert provider.prompt_version == "TARGET_FIT_PROMPT_V1R2"
     assert len(payload["messages"][1]["content"]) <= 48_000

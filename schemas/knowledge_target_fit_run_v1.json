@@ -24,7 +24,7 @@
     "fit_id": {"type": "string", "pattern": "^KFG-[0-9a-f]{16}$"},
     "plan_id": {"type": "string", "pattern": "^KTP-[0-9a-f]{16}$"},
     "source_run_id": {"type": "string", "minLength": 1},
-    "prompt_version": {"const": "TARGET_FIT_PROMPT_V1R1"},
+    "prompt_version": {"const": "TARGET_FIT_PROMPT_V1R2"},
     "model": {"type": "string", "minLength": 1},
     "target_snapshots": {
       "type": "array",

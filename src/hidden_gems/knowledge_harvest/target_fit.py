@@ -21,7 +21,7 @@ from .validator import load_targets
 
 FIT_ANALYSIS_SCHEMA_VERSION = "KNOWLEDGE_TARGET_FIT_ANALYSIS_V1"
 FIT_RUN_SCHEMA_VERSION = "KNOWLEDGE_TARGET_FIT_RUN_V1"
-FIT_PROMPT_VERSION = "TARGET_FIT_PROMPT_V1R1"
+FIT_PROMPT_VERSION = "TARGET_FIT_PROMPT_V1R2"
 SUPPORTED_PLAN_SCHEMA = "KNOWLEDGE_TRANSFER_PLAN_V1"
 
 FIT_MAX_DOCUMENT_CHARS = 4_000
@@ -29,7 +29,7 @@ FIT_MAX_TOTAL_DOCUMENT_CHARS = 24_000
 
 DEFAULT_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_target_fit_analysis_v1.json"
 DEFAULT_RUN_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_target_fit_run_v1.json"
-DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "knowledge_target_fit_v1r1.txt"
+DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "knowledge_target_fit_v1r2.txt"
 DEFAULT_TARGETS_PATH = Path(__file__).resolve().parents[3] / "config" / "knowledge_targets.json"
 
 CLASSIFICATIONS = (
