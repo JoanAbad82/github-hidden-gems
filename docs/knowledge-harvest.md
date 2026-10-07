@@ -69,6 +69,35 @@ Planner artifacts:
 
 The current plan contract is `KNOWLEDGE_TRANSFER_PLAN_V1`; target handoffs use `KNOWLEDGE_TARGET_HANDOFF_V1`. Identical harvest input produces byte-stable JSON/CSV plan output. Transfer remains a separate phase: the planner never clones or changes a target repository.
 
+## Target-fit gate
+
+Before implementation, every actionable transfer opportunity passes through a bounded target-fit gate:
+
+```bash
+hidden-gems fit-knowledge --from-plan path/to/knowledge_transfer_plan.json
+```
+
+The gate batches opportunities by `target_project_id`. For targets with a configured GitHub repository it collects a pinned, bounded static evidence bundle from that target; abstract targets are evaluated only against their declared `needs`.
+
+Canonical classifications are:
+
+- `ALREADY_PRESENT` — equivalent behavior is already implemented in the target; requires target `SOURCE` or `CONFIG` evidence.
+- `NOT_APPLICABLE` — do not spend implementation effort on this opportunity for the target now.
+- `EXPERIMENT_READY` — target fit exists and a bounded local experiment is justified.
+- `READY_TO_TRANSFER` — direct transfer is allowed only for a source `APPLY` opportunity backed by `IMPLEMENTED_TESTED`, high-confidence, low-risk source evidence plus a concrete target integration surface.
+
+The validator prevents semantic promotion beyond those invariants. In particular, abstract targets can never become `ALREADY_PRESENT` or `READY_TO_TRANSFER`, and `WATCH`/`DISCARD` opportunities cannot become actionable.
+
+Target-fit artifacts:
+
+- `knowledge_target_fit.json`
+- `knowledge_target_fit.csv`
+- `target-fit/targets/*.json`
+
+The semantic response contract is `KNOWLEDGE_TARGET_FIT_ANALYSIS_V1`; persisted runs use `KNOWLEDGE_TARGET_FIT_RUN_V1` with `TARGET_FIT_PROMPT_V1`. Inputs are pinned by transfer-plan id and target commit/evidence digest. No target repository is cloned, built, executed, or modified.
+
+A normal `hidden-gems harvest` now performs harvest → deterministic transfer plan → target-fit gate under one shared LLM cost budget. A downstream implementation step still requires an explicit transfer/experiment action.
+
 ## Manual pilot
 
 ```bash

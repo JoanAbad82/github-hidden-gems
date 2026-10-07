@@ -160,6 +160,31 @@ def _build_parser() -> argparse.ArgumentParser:
         help="limit the transfer plan to one target_project_id; repeat as needed",
     )
 
+    fit_knowledge = subparsers.add_parser(
+        "fit-knowledge",
+        help="classify transfer opportunities against their target projects before implementation",
+    )
+    _add_root(fit_knowledge)
+    fit_knowledge.add_argument(
+        "--from-plan",
+        dest="from_plan",
+        required=True,
+        help="knowledge_transfer_plan.json file or directory containing exactly one",
+    )
+    fit_knowledge.add_argument(
+        "--output",
+        dest="output_path",
+        default=None,
+        help="output directory override (default: target-fit beside transfer plan)",
+    )
+    fit_knowledge.add_argument(
+        "--target",
+        dest="targets",
+        action="append",
+        default=[],
+        help="limit target-fit analysis to one target_project_id; repeat as needed",
+    )
+
     validation = subparsers.add_parser(
         "validation-status", help="evaluate the seven-cycle V1 acceptance gate (read-only)"
     )
@@ -419,6 +444,11 @@ def cmd_harvest(args: argparse.Namespace) -> int:
     from .knowledge_harvest.planner import plan_from_artifact
     from .knowledge_harvest.provider import KnowledgeDeepSeekProvider
     from .knowledge_harvest.runner import harvest_repositories, repositories_from_candidates
+    from .knowledge_harvest.target_fit import (
+        TargetFitDeepSeekProvider,
+        fit_from_plan_artifact,
+        target_registry,
+    )
     from .github.client import GitHubClient
     from .llm.base import LLMBudget
 
@@ -450,14 +480,14 @@ def cmd_harvest(args: argparse.Namespace) -> int:
         else config.root / "artifacts" / "knowledge-harvest" / run_id
     )
     github = GitHubClient(config, os.environ.get("GITHUB_TOKEN"))
-    max_calls = len(repositories) * (int(config.llm.max_retries_per_candidate) + 1)
-    provider = KnowledgeDeepSeekProvider(
-        config,
-        budget=LLMBudget(
-            max_calls=max(1, max_calls),
-            max_budget=float(config.llm.max_llm_budget_per_run),
-        ),
+    retries = int(config.llm.max_retries_per_candidate) + 1
+    registry = target_registry(config.root / "config" / "knowledge_targets.json")
+    shared_budget = LLMBudget(
+        max_calls=max(1, (len(repositories) + len(registry)) * retries),
+        max_budget=float(config.llm.max_llm_budget_per_run),
     )
+    provider = KnowledgeDeepSeekProvider(config, budget=shared_budget)
+    fit_provider = None
     try:
         result = harvest_repositories(
             github=github,
@@ -466,37 +496,68 @@ def cmd_harvest(args: argparse.Namespace) -> int:
             output_dir=output,
             run_id=run_id,
         )
+
+        packets = result["packets"]
+        opportunities = sum(len(packet.get("opportunities", [])) for packet in packets)
+        print(f"KNOWLEDGE_PACKETS={len(packets)}")
+        print(f"KNOWLEDGE_OPPORTUNITIES={opportunities}")
+        print(f"KNOWLEDGE_OUTPUT={result['json_path']}")
+        if not packets:
+            print("RESULT=KNOWLEDGE_HARVEST_FAILED")
+            return 1
+
+        try:
+            transfer = plan_from_artifact(
+                result["json_path"],
+                output_dir=output / "transfer-plan",
+            )
+        except Exception as exc:
+            print(f"ERROR=knowledge transfer planning failed: {type(exc).__name__}:{exc}")
+            print("RESULT=KNOWLEDGE_HARVEST_FAILED")
+            return 1
+        print(f"KNOWLEDGE_TRANSFER_PLAN={transfer['json_path']}")
+        print(f"KNOWLEDGE_TRANSFER_PLAN_ID={transfer['plan']['plan_id']}")
+
+        fit_errors = 0
+        if int(transfer["plan"].get("opportunity_count", 0)) > 0:
+            fit_provider = TargetFitDeepSeekProvider(config, budget=shared_budget)
+            try:
+                fitted = fit_from_plan_artifact(
+                    config=config,
+                    github=github,
+                    provider=fit_provider,
+                    source=transfer["json_path"],
+                    output_dir=output / "target-fit",
+                )
+                fit = fitted["fit"]
+                print(f"KNOWLEDGE_TARGET_FIT={fitted['json_path']}")
+                print(f"KNOWLEDGE_TARGET_FIT_ID={fit['fit_id']}")
+                print(f"KNOWLEDGE_TARGET_FIT_CLASSIFIED={fit['classified_count']}")
+                for classification, count in sorted(fit["classification_counts"].items()):
+                    print(f"KNOWLEDGE_TARGET_FIT_{classification}={count}")
+                fit_errors = len(fit["errors"]) + max(
+                    0,
+                    int(fit["requested_count"]) - int(fit["classified_count"]),
+                )
+            except Exception as exc:
+                fit_errors = 1
+                print(f"ERROR=knowledge target-fit failed: {type(exc).__name__}:{exc}")
+
+        total_errors = len(result["errors"]) + fit_errors
+        if total_errors:
+            if result["errors"]:
+                print(f"KNOWLEDGE_ERRORS={len(result['errors'])}")
+            if fit_errors:
+                print(f"KNOWLEDGE_TARGET_FIT_ERRORS={fit_errors}")
+            print("RESULT=KNOWLEDGE_HARVEST_PARTIAL")
+            return 0
+        print("RESULT=KNOWLEDGE_HARVEST_SUCCESS")
+        return 0
     finally:
+        if fit_provider is not None:
+            fit_provider.close()
         provider.close()
         github.close()
-
-    packets = result["packets"]
-    opportunities = sum(len(packet.get("opportunities", [])) for packet in packets)
-    print(f"KNOWLEDGE_PACKETS={len(packets)}")
-    print(f"KNOWLEDGE_OPPORTUNITIES={opportunities}")
-    print(f"KNOWLEDGE_OUTPUT={result['json_path']}")
-    if not packets:
-        print("RESULT=KNOWLEDGE_HARVEST_FAILED")
-        return 1
-
-    try:
-        transfer = plan_from_artifact(
-            result["json_path"],
-            output_dir=output / "transfer-plan",
-        )
-    except Exception as exc:
-        print(f"ERROR=knowledge transfer planning failed: {type(exc).__name__}:{exc}")
-        print("RESULT=KNOWLEDGE_HARVEST_FAILED")
-        return 1
-    print(f"KNOWLEDGE_TRANSFER_PLAN={transfer['json_path']}")
-    print(f"KNOWLEDGE_TRANSFER_PLAN_ID={transfer['plan']['plan_id']}")
-
-    if result["errors"]:
-        print(f"KNOWLEDGE_ERRORS={len(result['errors'])}")
-        print("RESULT=KNOWLEDGE_HARVEST_PARTIAL")
-        return 0
-    print("RESULT=KNOWLEDGE_HARVEST_SUCCESS")
-    return 0
 
 
 def cmd_plan_knowledge(args: argparse.Namespace) -> int:
@@ -521,6 +582,96 @@ def cmd_plan_knowledge(args: argparse.Namespace) -> int:
     print(f"TRANSFER_TARGETS={plan['target_count']}")
     print(f"TRANSFER_OUTPUT={result['json_path']}")
     print("RESULT=KNOWLEDGE_TRANSFER_PLAN_SUCCESS")
+    return 0
+
+
+def cmd_fit_knowledge(args: argparse.Namespace) -> int:
+    """Run the bounded semantic target-fit gate without modifying target projects."""
+
+    try:
+        config = load_config(resolve_root(args))
+    except ConfigError as exc:
+        print("RESULT=FAILED_CONFIGURATION")
+        print(f"ERROR={exc}")
+        return 2
+
+    from .github.client import GitHubClient
+    from .knowledge_harvest.target_fit import (
+        TargetFitDeepSeekProvider,
+        fit_from_plan_artifact,
+        load_transfer_plan,
+        target_registry,
+    )
+    from .llm.base import LLMBudget
+
+    try:
+        _, plan = load_transfer_plan(args.from_plan)
+    except Exception as exc:
+        print("RESULT=FAILED_CONFIGURATION")
+        print(f"ERROR=invalid transfer plan: {type(exc).__name__}:{exc}")
+        return 2
+
+    requested_targets = {
+        str(value).strip()
+        for value in (getattr(args, "targets", []) or [])
+        if str(value).strip()
+    }
+    registry = target_registry(config.root / "config" / "knowledge_targets.json")
+    plan_targets = {
+        str(item.get("target_project_id") or "")
+        for item in plan.get("opportunities", [])
+        if isinstance(item, dict) and item.get("target_project_id")
+    }
+    selected_targets = (
+        plan_targets & requested_targets
+        if requested_targets
+        else plan_targets
+    )
+    unknown = sorted(selected_targets - set(registry))
+    if unknown:
+        print("RESULT=FAILED_CONFIGURATION")
+        print(f"ERROR=unknown target_project_id: {', '.join(unknown)}")
+        return 2
+    if not selected_targets:
+        print("RESULT=FAILED_CONFIGURATION")
+        print("ERROR=no target opportunities selected")
+        return 2
+
+    retries = int(config.llm.max_retries_per_candidate) + 1
+    budget = LLMBudget(
+        max_calls=max(1, len(selected_targets) * retries),
+        max_budget=float(config.llm.max_llm_budget_per_run),
+    )
+    github = GitHubClient(config, os.environ.get("GITHUB_TOKEN"))
+    provider = TargetFitDeepSeekProvider(config, budget=budget)
+    try:
+        result = fit_from_plan_artifact(
+            config=config,
+            github=github,
+            provider=provider,
+            source=args.from_plan,
+            output_dir=getattr(args, "output_path", None),
+            targets=sorted(selected_targets),
+        )
+    finally:
+        provider.close()
+        github.close()
+
+    fit = result["fit"]
+    print(f"TARGET_FIT_ID={fit['fit_id']}")
+    print(f"TARGET_FIT_CLASSIFIED={fit['classified_count']}")
+    print(f"TARGET_FIT_REQUESTED={fit['requested_count']}")
+    for classification, count in sorted(fit["classification_counts"].items()):
+        print(f"TARGET_FIT_{classification}={count}")
+    print(f"TARGET_FIT_OUTPUT={result['json_path']}")
+    if fit["classified_count"] == 0:
+        print("RESULT=KNOWLEDGE_TARGET_FIT_FAILED")
+        return 1
+    if fit["errors"] or fit["classified_count"] != fit["requested_count"]:
+        print(f"TARGET_FIT_ERRORS={len(fit['errors'])}")
+        print("RESULT=KNOWLEDGE_TARGET_FIT_PARTIAL")
+        return 0
+    print("RESULT=KNOWLEDGE_TARGET_FIT_SUCCESS")
     return 0
 
 
@@ -611,6 +762,7 @@ def main(argv: list[str] | None = None) -> int:
         "run": cmd_run,
         "harvest": cmd_harvest,
         "plan-knowledge": cmd_plan_knowledge,
+        "fit-knowledge": cmd_fit_knowledge,
         "validation-status": cmd_validation_status,
     }
     handler = handlers.get(args.command)

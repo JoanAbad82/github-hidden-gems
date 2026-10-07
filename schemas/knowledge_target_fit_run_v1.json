@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openutilitylab.com/schemas/knowledge_target_fit_run_v1.json",
+  "title": "KNOWLEDGE_TARGET_FIT_RUN_V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "fit_id",
+    "plan_id",
+    "source_run_id",
+    "prompt_version",
+    "model",
+    "target_snapshots",
+    "classification_counts",
+    "classified_count",
+    "requested_count",
+    "errors",
+    "usage",
+    "results"
+  ],
+  "properties": {
+    "schema_version": {"const": "KNOWLEDGE_TARGET_FIT_RUN_V1"},
+    "fit_id": {"type": "string", "pattern": "^KFG-[0-9a-f]{16}$"},
+    "plan_id": {"type": "string", "pattern": "^KTP-[0-9a-f]{16}$"},
+    "source_run_id": {"type": "string", "minLength": 1},
+    "prompt_version": {"const": "TARGET_FIT_PROMPT_V1"},
+    "model": {"type": "string", "minLength": 1},
+    "target_snapshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_project_id", "repository", "head_sha", "evidence_digest"],
+        "properties": {
+          "target_project_id": {"type": "string", "minLength": 1},
+          "repository": {"type": ["string", "null"]},
+          "head_sha": {
+            "oneOf": [
+              {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+              {"type": "null"}
+            ]
+          },
+          "evidence_digest": {
+            "oneOf": [
+              {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              {"type": "null"}
+            ]
+          }
+        }
+      }
+    },
+    "classification_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ALREADY_PRESENT", "NOT_APPLICABLE", "EXPERIMENT_READY", "READY_TO_TRANSFER"],
+      "properties": {
+        "ALREADY_PRESENT": {"type": "integer", "minimum": 0},
+        "NOT_APPLICABLE": {"type": "integer", "minimum": 0},
+        "EXPERIMENT_READY": {"type": "integer", "minimum": 0},
+        "READY_TO_TRANSFER": {"type": "integer", "minimum": 0}
+      }
+    },
+    "classified_count": {"type": "integer", "minimum": 0},
+    "requested_count": {"type": "integer", "minimum": 0},
+    "errors": {"type": "array", "items": {"type": "string"}},
+    "usage": {"type": "object"},
+    "results": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/result"}
+    }
+  },
+  "$defs": {
+    "targetEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path", "blob_sha", "content_sha256"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^E[0-9]{2}$"},
+        "kind": {"enum": ["DOCUMENTATION", "SOURCE", "TEST", "CONFIG"]},
+        "path": {"type": "string", "minLength": 1},
+        "blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opportunity_id",
+        "target_project_id",
+        "classification",
+        "fit_confidence",
+        "rationale",
+        "matched_needs",
+        "integration_surface",
+        "target_evidence_refs",
+        "target_evidence",
+        "target_repository",
+        "target_head_sha",
+        "target_evidence_digest",
+        "source_stage",
+        "source_action",
+        "source_repo",
+        "title",
+        "priority_score"
+      ],
+      "properties": {
+        "opportunity_id": {"type": "string", "pattern": "^KOP-[0-9a-f]{16}$"},
+        "target_project_id": {"type": "string", "minLength": 1},
+        "classification": {
+          "enum": ["ALREADY_PRESENT", "NOT_APPLICABLE", "EXPERIMENT_READY", "READY_TO_TRANSFER"]
+        },
+        "fit_confidence": {"enum": ["HIGH", "MEDIUM", "LOW"]},
+        "rationale": {"type": "string", "minLength": 1},
+        "matched_needs": {"type": "array", "items": {"type": "string"}},
+        "integration_surface": {"type": ["string", "null"]},
+        "target_evidence_refs": {"type": "array", "items": {"type": "string", "pattern": "^E[0-9]{2}$"}},
+        "target_evidence": {"type": "array", "items": {"$ref": "#/$defs/targetEvidence"}},
+        "target_repository": {"type": ["string", "null"]},
+        "target_head_sha": {
+          "oneOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "null"}
+          ]
+        },
+        "target_evidence_digest": {
+          "oneOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            {"type": "null"}
+          ]
+        },
+        "source_stage": {"type": "string", "minLength": 1},
+        "source_action": {"enum": ["APPLY", "EXPERIMENT", "WATCH", "DISCARD"]},
+        "source_repo": {"type": "string", "minLength": 3},
+        "title": {"type": "string", "minLength": 1},
+        "priority_score": {"type": "integer"}
+      }
+    }
+  }
+}
