@@ -21,12 +21,15 @@ from .validator import load_targets
 
 FIT_ANALYSIS_SCHEMA_VERSION = "KNOWLEDGE_TARGET_FIT_ANALYSIS_V1"
 FIT_RUN_SCHEMA_VERSION = "KNOWLEDGE_TARGET_FIT_RUN_V1"
-FIT_PROMPT_VERSION = "TARGET_FIT_PROMPT_V1"
+FIT_PROMPT_VERSION = "TARGET_FIT_PROMPT_V1R1"
 SUPPORTED_PLAN_SCHEMA = "KNOWLEDGE_TRANSFER_PLAN_V1"
+
+FIT_MAX_DOCUMENT_CHARS = 4_000
+FIT_MAX_TOTAL_DOCUMENT_CHARS = 24_000
 
 DEFAULT_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_target_fit_analysis_v1.json"
 DEFAULT_RUN_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_target_fit_run_v1.json"
-DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "knowledge_target_fit_v1.txt"
+DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "knowledge_target_fit_v1r1.txt"
 DEFAULT_TARGETS_PATH = Path(__file__).resolve().parents[3] / "config" / "knowledge_targets.json"
 
 CLASSIFICATIONS = (
@@ -284,7 +287,11 @@ class TargetFitDeepSeekProvider:
         body = {
             "target": dict(target),
             "opportunities": [dict(item) for item in opportunities],
-            "target_evidence": dict(target_evidence) if target_evidence else None,
+            "target_evidence": (
+                _compact_target_evidence(target_evidence)
+                if target_evidence
+                else None
+            ),
         }
         bounded = json.dumps(body, ensure_ascii=True, sort_keys=True)
         max_chars = max(int(self._llm.max_input_tokens_per_repo) * 4, 48_000)
@@ -723,6 +730,29 @@ def fit_from_plan_artifact(
         "csv_path": csv_path,
         "handoff_paths": handoffs,
     }
+
+
+def _compact_target_evidence(evidence: Mapping[str, Any]) -> dict[str, Any]:
+    """Bound target repository text for fit analysis while preserving provenance."""
+
+    compact = {
+        "source": dict(evidence.get("source") or {}),
+        "documents": [],
+    }
+    total = 0
+    for raw in evidence.get("documents", []):
+        if not isinstance(raw, Mapping) or total >= FIT_MAX_TOTAL_DOCUMENT_CHARS:
+            continue
+        item = dict(raw)
+        text = str(item.get("untrusted_text") or "")
+        remaining = FIT_MAX_TOTAL_DOCUMENT_CHARS - total
+        clipped = text[: min(FIT_MAX_DOCUMENT_CHARS, remaining)]
+        if not clipped:
+            continue
+        item["untrusted_text"] = clipped
+        compact["documents"].append(item)
+        total += len(clipped)
+    return compact
 
 
 def _synthetic_numeric_id(value: str) -> int:
