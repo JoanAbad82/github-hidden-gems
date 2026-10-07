@@ -1,0 +1,75 @@
+name: knowledge-target-fit
+
+on:
+  workflow_dispatch:
+    inputs:
+      harvest_run_id:
+        description: "Prior knowledge-harvest GitHub Actions run id"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  fit:
+    name: replay target-fit gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      HARVEST_RUN_ID: ${{ inputs.harvest_run_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Validate configuration
+        run: hidden-gems validate-config --root .
+
+      - name: Download prior harvest artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p input
+          gh run download "$HARVEST_RUN_ID" --dir input
+          mapfile -t plans < <(find input -type f -name knowledge_transfer_plan.json | sort)
+          if [ "${#plans[@]}" -ne 1 ]; then
+            echo "expected exactly one knowledge_transfer_plan.json, found ${#plans[@]}" >&2
+            exit 2
+          fi
+          echo "PLAN_PATH=${plans[0]}" >> "$GITHUB_ENV"
+
+      - name: Run target-fit gate
+        run: |
+          hidden-gems fit-knowledge \
+            --root . \
+            --from-plan "$PLAN_PATH" \
+            --output "artifacts/target-fit-replay/$HARVEST_RUN_ID"
+
+      - name: Upload target-fit replay
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: target-fit-replay-${{ inputs.harvest_run_id }}-${{ github.run_id }}
+          path: artifacts/target-fit-replay/${{ inputs.harvest_run_id }}/
+          if-no-files-found: error
+          retention-days: 90
