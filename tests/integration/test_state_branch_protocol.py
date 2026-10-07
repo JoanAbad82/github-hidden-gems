@@ -159,3 +159,43 @@ def test_non_git_directory_is_rejected(tmp_path):
 
     with pytest.raises(StateConflict):
         manager.load(tmp_path / "work")
+
+
+
+def test_state_load_allows_missing_manifest_as_empty_state(git_repo):
+    git(git_repo, "branch", "state")
+    manager = StateBranchManager(git_repo)
+
+    snapshot = manager.load(git_repo.parent / "state-work")
+
+    assert snapshot.parent_sha == git(git_repo, "rev-parse", "refs/heads/state")
+    assert snapshot.manifest == {}
+    assert snapshot.last_run_id is None
+    assert snapshot.report_state == "IDLE"
+
+
+def test_state_load_rejects_malformed_manifest(git_repo):
+    git(git_repo, "checkout", "-b", "state")
+    (git_repo / "state_manifest.json").write_text("{not-json", encoding="utf-8")
+    git(git_repo, "add", "state_manifest.json")
+    git(git_repo, "commit", "-m", "corrupt state manifest")
+    git(git_repo, "checkout", "main")
+
+    manager = StateBranchManager(git_repo)
+    with pytest.raises(StateIntegrityError, match="malformed state manifest"):
+        manager.load(git_repo.parent / "state-work")
+
+
+def test_state_load_rejects_incompatible_manifest_shape(git_repo):
+    git(git_repo, "checkout", "-b", "state")
+    (git_repo / "state_manifest.json").write_text(
+        '{"schema_version":"STATE_MANIFEST_V0","state_timestamp":"2026-10-07T17:00:00Z"}\n',
+        encoding="utf-8",
+    )
+    git(git_repo, "add", "state_manifest.json")
+    git(git_repo, "commit", "-m", "incompatible state manifest")
+    git(git_repo, "checkout", "main")
+
+    manager = StateBranchManager(git_repo)
+    with pytest.raises(StateIntegrityError, match="unsupported state manifest schema"):
+        manager.load(git_repo.parent / "state-work")

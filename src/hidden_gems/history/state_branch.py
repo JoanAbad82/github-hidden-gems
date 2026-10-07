@@ -103,7 +103,77 @@ class StateConflict(RuntimeError):
 
 
 class StateIntegrityError(RuntimeError):
-    """Raised when the state database fails its integrity check."""
+    """Raised when persisted state fails deterministic integrity checks."""
+
+
+def _read_state_manifest(path: Path) -> dict[str, Any]:
+    """Load a present manifest strictly; absence is the only empty-state case."""
+
+    if not path.exists():
+        return {}
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise StateIntegrityError(
+            f"malformed state manifest: {type(exc).__name__}"
+        ) from exc
+    if not isinstance(loaded, dict):
+        raise StateIntegrityError("state manifest must be a JSON object")
+
+    unknown = sorted(set(loaded) - set(MANIFEST_KEYS))
+    if unknown:
+        raise StateIntegrityError(
+            f"state manifest has unknown keys: {', '.join(unknown)}"
+        )
+    if loaded.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+        raise StateIntegrityError(
+            f"unsupported state manifest schema: {loaded.get('schema_version')!r}"
+        )
+
+    timestamp = loaded.get("state_timestamp")
+    if not isinstance(timestamp, str) or not timestamp.strip():
+        raise StateIntegrityError("state manifest requires state_timestamp")
+    try:
+        parsed_timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise StateIntegrityError("state manifest has invalid state_timestamp") from exc
+    if parsed_timestamp.tzinfo is None:
+        raise StateIntegrityError("state manifest state_timestamp must include timezone")
+
+    report_state = loaded.get("report_state")
+    if report_state is not None and report_state not in REPORT_STATES:
+        raise StateIntegrityError(f"invalid state manifest report_state: {report_state!r}")
+
+    digest = loaded.get("db_sha256")
+    if digest is not None and (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+    ):
+        raise StateIntegrityError("state manifest has invalid db_sha256")
+
+    for key in ("db_bytes", "schema_migration_version"):
+        value = loaded.get(key)
+        if value is not None and (type(value) is not int or value < 0):
+            raise StateIntegrityError(f"state manifest has invalid {key}")
+
+    for key in (
+        "last_run_id",
+        "last_run_result",
+        "pending_report_fingerprint",
+    ):
+        value = loaded.get(key)
+        if value is not None and not isinstance(value, str):
+            raise StateIntegrityError(f"state manifest has invalid {key}")
+
+    backups = loaded.get("backups")
+    if backups is not None and (
+        not isinstance(backups, list)
+        or any(not isinstance(item, str) for item in backups)
+    ):
+        raise StateIntegrityError("state manifest has invalid backups")
+
+    return dict(loaded)
 
 
 @dataclass
@@ -170,12 +240,7 @@ class StateBranchManager:
         if parent_sha:
             self._git("--work-tree", str(workdir), "checkout", parent_sha, "--", ".")
         manifest_path = workdir / self.manifest_filename
-        manifest: dict[str, Any] = {}
-        if manifest_path.exists():
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError:
-                manifest = {}
+        manifest = _read_state_manifest(manifest_path)
         return StateSnapshot(
             workdir=workdir,
             db_path=workdir / self.db_filename,
