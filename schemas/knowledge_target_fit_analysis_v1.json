@@ -20,6 +20,8 @@
       "required": [
         "opportunity_id",
         "classification",
+        "applicable",
+        "core_behavior_present",
         "fit_confidence",
         "rationale",
         "matched_needs",
@@ -36,6 +38,8 @@
             "READY_TO_TRANSFER"
           ]
         },
+        "applicable": {"type": "boolean"},
+        "core_behavior_present": {"type": "boolean"},
         "fit_confidence": {"enum": ["HIGH", "MEDIUM", "LOW"]},
         "rationale": {"type": "string", "minLength": 1, "maxLength": 500},
         "matched_needs": {

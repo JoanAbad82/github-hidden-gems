@@ -65,6 +65,8 @@ def _fit_result(opportunity_id: str, classification: str, **overrides):
     payload = {
         "opportunity_id": opportunity_id,
         "classification": classification,
+        "applicable": True,
+        "core_behavior_present": False,
         "fit_confidence": "HIGH",
         "rationale": "Grounded fit decision.",
         "matched_needs": ["safe autonomous operation"],
@@ -75,39 +77,44 @@ def _fit_result(opportunity_id: str, classification: str, **overrides):
     return {"results": [payload]}
 
 
-def test_ready_to_transfer_requires_source_ready_stage():
+def test_model_ready_label_cannot_promote_source_stage():
     opportunity = _opportunity("KOP-" + "1" * 16)
-    with pytest.raises(TargetFitError, match="cannot promote source stage"):
-        validate_target_fit(
-            _fit_result(opportunity["opportunity_id"], "READY_TO_TRANSFER"),
-            opportunities=[opportunity],
-            target=_target(),
-            evidence_manifest=_manifest(),
-        )
-
-
-def test_ready_to_transfer_accepts_tested_apply_with_target_surface():
-    opportunity = _opportunity(
-        "KOP-" + "2" * 16,
-        stage="READY_TO_TRANSFER",
-        action="APPLY",
-    )
     result = validate_target_fit(
         _fit_result(opportunity["opportunity_id"], "READY_TO_TRANSFER"),
         opportunities=[opportunity],
         target=_target(),
         evidence_manifest=_manifest(),
     )
-    assert result["results"][0]["classification"] == "READY_TO_TRANSFER"
+    fit = result["results"][0]
+    assert fit["classification"] == "EXPERIMENT_READY"
+    assert fit["_model_classification"] == "READY_TO_TRANSFER"
 
 
-def test_already_present_requires_concrete_implementation_evidence():
+def test_ready_to_transfer_is_recomputed_from_invariants():
+    opportunity = _opportunity(
+        "KOP-" + "2" * 16,
+        stage="READY_TO_TRANSFER",
+        action="APPLY",
+    )
+    result = validate_target_fit(
+        _fit_result(opportunity["opportunity_id"], "EXPERIMENT_READY"),
+        opportunities=[opportunity],
+        target=_target(),
+        evidence_manifest=_manifest(),
+    )
+    fit = result["results"][0]
+    assert fit["classification"] == "READY_TO_TRANSFER"
+    assert fit["_model_classification"] == "EXPERIMENT_READY"
+
+
+def test_core_behavior_present_requires_concrete_implementation_evidence():
     opportunity = _opportunity("KOP-" + "3" * 16)
     with pytest.raises(TargetFitError, match="SOURCE or CONFIG"):
         validate_target_fit(
             _fit_result(
                 opportunity["opportunity_id"],
                 "ALREADY_PRESENT",
+                core_behavior_present=True,
                 target_evidence_refs=["E03"],
             ),
             opportunities=[opportunity],
@@ -116,23 +123,26 @@ def test_already_present_requires_concrete_implementation_evidence():
         )
 
 
-def test_abstract_target_cannot_claim_ready_or_already_present():
+def test_abstract_target_cannot_be_canonical_ready_to_transfer():
     opportunity = _opportunity(
         "KOP-" + "4" * 16,
         stage="READY_TO_TRANSFER",
         action="APPLY",
     )
-    with pytest.raises(TargetFitError, match="concrete target repository"):
-        validate_target_fit(
-            _fit_result(
-                opportunity["opportunity_id"],
-                "READY_TO_TRANSFER",
-                target_evidence_refs=[],
-            ),
-            opportunities=[opportunity],
-            target=_target(repository=None),
-            evidence_manifest=[],
-        )
+    result = validate_target_fit(
+        _fit_result(
+            opportunity["opportunity_id"],
+            "READY_TO_TRANSFER",
+            target_evidence_refs=[],
+            integration_surface="safe autonomous operation",
+        ),
+        opportunities=[opportunity],
+        target=_target(repository=None),
+        evidence_manifest=[],
+    )
+    fit = result["results"][0]
+    assert fit["classification"] == "EXPERIMENT_READY"
+    assert fit["_model_classification"] == "READY_TO_TRANSFER"
 
 
 def test_abstract_target_can_be_experiment_ready_from_declared_need():
@@ -151,19 +161,51 @@ def test_abstract_target_can_be_experiment_ready_from_declared_need():
     assert result["results"][0]["classification"] == "EXPERIMENT_READY"
 
 
-def test_watch_cannot_be_promoted_to_experiment():
+def test_watch_is_canonicalized_to_not_applicable():
     opportunity = _opportunity(
         "KOP-" + "6" * 16,
         stage="WATCH",
         action="WATCH",
     )
-    with pytest.raises(TargetFitError, match="cannot promote source action"):
-        validate_target_fit(
-            _fit_result(opportunity["opportunity_id"], "EXPERIMENT_READY"),
-            opportunities=[opportunity],
-            target=_target(),
-            evidence_manifest=_manifest(),
-        )
+    result = validate_target_fit(
+        _fit_result(opportunity["opportunity_id"], "EXPERIMENT_READY"),
+        opportunities=[opportunity],
+        target=_target(),
+        evidence_manifest=_manifest(),
+    )
+    fit = result["results"][0]
+    assert fit["classification"] == "NOT_APPLICABLE"
+    assert fit["_model_classification"] == "EXPERIMENT_READY"
+
+
+def test_core_behavior_present_canonicalizes_to_already_present():
+    opportunity = _opportunity("KOP-" + "d" * 16)
+    result = validate_target_fit(
+        _fit_result(
+            opportunity["opportunity_id"],
+            "EXPERIMENT_READY",
+            core_behavior_present=True,
+        ),
+        opportunities=[opportunity],
+        target=_target(),
+        evidence_manifest=_manifest(),
+    )
+    fit = result["results"][0]
+    assert fit["classification"] == "ALREADY_PRESENT"
+    assert fit["_model_classification"] == "EXPERIMENT_READY"
+
+
+def test_applicable_actionable_fit_overrides_model_not_applicable():
+    opportunity = _opportunity("KOP-" + "e" * 16)
+    result = validate_target_fit(
+        _fit_result(opportunity["opportunity_id"], "NOT_APPLICABLE"),
+        opportunities=[opportunity],
+        target=_target(),
+        evidence_manifest=_manifest(),
+    )
+    fit = result["results"][0]
+    assert fit["classification"] == "EXPERIMENT_READY"
+    assert fit["_model_classification"] == "NOT_APPLICABLE"
 
 
 def test_target_fit_requires_exact_result_ids():
@@ -183,7 +225,7 @@ def test_write_target_fit_artifacts_is_deterministic(tmp_path):
         "fit_id": "KFG-" + "1" * 16,
         "plan_id": "KTP-" + "2" * 16,
         "source_run_id": "KH-TEST",
-        "prompt_version": "TARGET_FIT_PROMPT_V1R2",
+        "prompt_version": "TARGET_FIT_PROMPT_V1R3",
         "model": "deepseek-chat",
         "target_snapshots": [],
         "classification_counts": {
@@ -201,6 +243,9 @@ def test_write_target_fit_artifacts_is_deterministic(tmp_path):
                 "opportunity_id": "KOP-" + "9" * 16,
                 "target_project_id": "project-a",
                 "classification": "EXPERIMENT_READY",
+                "model_classification": "EXPERIMENT_READY",
+                "applicable": True,
+                "core_behavior_present": False,
                 "fit_confidence": "HIGH",
                 "rationale": "Fits.",
                 "matched_needs": ["safe autonomous operation"],
@@ -268,7 +313,7 @@ def test_fit_transfer_plan_batches_by_target(monkeypatch, tmp_path):
     )
 
     class Provider:
-        prompt_version = "TARGET_FIT_PROMPT_V1R2"
+        prompt_version = "TARGET_FIT_PROMPT_V1R3"
         model = "fake"
         budget = SimpleNamespace(snapshot=lambda: {})
 
@@ -279,6 +324,8 @@ def test_fit_transfer_plan_batches_by_target(monkeypatch, tmp_path):
                     {
                         "opportunity_id": item["opportunity_id"],
                         "classification": "EXPERIMENT_READY",
+                        "applicable": True,
+                        "core_behavior_present": False,
                         "fit_confidence": "HIGH",
                         "rationale": "Fits target.",
                         "matched_needs": ["safe autonomous operation"],
@@ -416,5 +463,5 @@ def test_target_fit_payload_compacts_large_target_evidence(app_config):
         feedback=None,
     )
 
-    assert provider.prompt_version == "TARGET_FIT_PROMPT_V1R2"
+    assert provider.prompt_version == "TARGET_FIT_PROMPT_V1R3"
     assert len(payload["messages"][1]["content"]) <= 48_000

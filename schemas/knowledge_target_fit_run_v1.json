@@ -24,7 +24,7 @@
     "fit_id": {"type": "string", "pattern": "^KFG-[0-9a-f]{16}$"},
     "plan_id": {"type": "string", "pattern": "^KTP-[0-9a-f]{16}$"},
     "source_run_id": {"type": "string", "minLength": 1},
-    "prompt_version": {"const": "TARGET_FIT_PROMPT_V1R2"},
+    "prompt_version": {"const": "TARGET_FIT_PROMPT_V1R3"},
     "model": {"type": "string", "minLength": 1},
     "target_snapshots": {
       "type": "array",
@@ -90,6 +90,9 @@
         "opportunity_id",
         "target_project_id",
         "classification",
+        "model_classification",
+        "applicable",
+        "core_behavior_present",
         "fit_confidence",
         "rationale",
         "matched_needs",
@@ -111,6 +114,11 @@
         "classification": {
           "enum": ["ALREADY_PRESENT", "NOT_APPLICABLE", "EXPERIMENT_READY", "READY_TO_TRANSFER"]
         },
+        "model_classification": {
+          "enum": ["ALREADY_PRESENT", "NOT_APPLICABLE", "EXPERIMENT_READY", "READY_TO_TRANSFER"]
+        },
+        "applicable": {"type": "boolean"},
+        "core_behavior_present": {"type": "boolean"},
         "fit_confidence": {"enum": ["HIGH", "MEDIUM", "LOW"]},
         "rationale": {"type": "string", "minLength": 1},
         "matched_needs": {"type": "array", "items": {"type": "string"}},

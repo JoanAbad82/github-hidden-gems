@@ -86,7 +86,7 @@ Canonical classifications are:
 - `EXPERIMENT_READY` — target fit exists and a bounded local experiment is justified.
 - `READY_TO_TRANSFER` — direct transfer is allowed only for a source `APPLY` opportunity backed by `IMPLEMENTED_TESTED`, high-confidence, low-risk source evidence plus a concrete target integration surface.
 
-The validator prevents semantic promotion beyond those invariants. In particular, abstract targets can never become `ALREADY_PRESENT` or `READY_TO_TRANSFER`, and `WATCH`/`DISCARD` opportunities cannot become actionable.
+The model supplies semantic facts (`applicable`, `core_behavior_present`, fit confidence, matched needs, and target evidence refs), but its classification label is not canonical. The validator recomputes the final classification deterministically from those facts plus source maturity and target provenance, and persists both `classification` and `model_classification` for audit. In particular, concrete SOURCE/CONFIG evidence plus `core_behavior_present=true` becomes `ALREADY_PRESENT` even if the model labeled it differently; abstract targets can never become `ALREADY_PRESENT` or `READY_TO_TRANSFER`; and `WATCH`/`DISCARD` opportunities cannot become actionable.
 
 Target-fit artifacts:
 
@@ -94,7 +94,7 @@ Target-fit artifacts:
 - `knowledge_target_fit.csv`
 - `target-fit/targets/*.json`
 
-The semantic response contract is `KNOWLEDGE_TARGET_FIT_ANALYSIS_V1`; persisted runs use `KNOWLEDGE_TARGET_FIT_RUN_V1` with `TARGET_FIT_PROMPT_V1R2`. Inputs are pinned by transfer-plan id and target commit/evidence digest. No target repository is cloned, built, executed, or modified.
+The semantic response contract is `KNOWLEDGE_TARGET_FIT_ANALYSIS_V1`; persisted runs use `KNOWLEDGE_TARGET_FIT_RUN_V1` with `TARGET_FIT_PROMPT_V1R3`. Inputs are pinned by transfer-plan id and target commit/evidence digest. No target repository is cloned, built, executed, or modified.
 
 A normal `hidden-gems harvest` now performs harvest → deterministic transfer plan → target-fit gate under one shared LLM cost budget. A downstream implementation step still requires an explicit transfer/experiment action.
 
