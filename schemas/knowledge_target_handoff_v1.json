@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openutilitylab.com/schemas/knowledge_target_handoff_v1.json",
+  "title": "KNOWLEDGE_TARGET_HANDOFF_V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "source_run_id",
+    "source_digest",
+    "target_project_id",
+    "opportunity_count",
+    "opportunities"
+  ],
+  "properties": {
+    "schema_version": {"const": "KNOWLEDGE_TARGET_HANDOFF_V1"},
+    "plan_id": {"type": "string", "pattern": "^KTP-[0-9a-f]{16}$"},
+    "source_run_id": {"type": "string", "minLength": 1},
+    "source_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "target_project_id": {"type": "string", "minLength": 1},
+    "opportunity_count": {"type": "integer", "minimum": 0},
+    "opportunities": {
+      "type": "array",
+      "items": {"$ref": "knowledge_transfer_plan_v1.json#/$defs/opportunity"}
+    }
+  }
+}
