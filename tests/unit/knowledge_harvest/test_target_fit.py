@@ -183,7 +183,7 @@ def test_write_target_fit_artifacts_is_deterministic(tmp_path):
         "fit_id": "KFG-" + "1" * 16,
         "plan_id": "KTP-" + "2" * 16,
         "source_run_id": "KH-TEST",
-        "prompt_version": "TARGET_FIT_PROMPT_V1",
+        "prompt_version": "TARGET_FIT_PROMPT_V1R1",
         "model": "deepseek-chat",
         "target_snapshots": [],
         "classification_counts": {
@@ -268,7 +268,7 @@ def test_fit_transfer_plan_batches_by_target(monkeypatch, tmp_path):
     )
 
     class Provider:
-        prompt_version = "TARGET_FIT_PROMPT_V1"
+        prompt_version = "TARGET_FIT_PROMPT_V1R1"
         model = "fake"
         budget = SimpleNamespace(snapshot=lambda: {})
 
@@ -362,3 +362,59 @@ def test_target_fit_provider_accepts_valid_batched_response(app_config):
     assert result["results"][0]["classification"] == "EXPERIMENT_READY"
     assert provider.budget.calls_made == 1
     assert provider.budget.failures == 0
+
+
+
+def test_target_fit_payload_compacts_large_target_evidence(app_config):
+    from hidden_gems.knowledge_harvest.target_fit import TargetFitDeepSeekProvider
+    from hidden_gems.llm.base import LLMBudget
+
+    class Client:
+        def close(self):
+            pass
+
+    provider = TargetFitDeepSeekProvider(
+        app_config,
+        api_key="test-key",
+        client=Client(),
+        budget=LLMBudget(max_calls=2, max_budget=1.0),
+    )
+    evidence = {
+        "source": {
+            "evidence_manifest": [
+                {
+                    "id": f"E{index:02d}",
+                    "kind": "SOURCE",
+                    "path": f"src/file{index}.py",
+                    "blob_sha": "a" * 40,
+                    "content_sha256": "b" * 64,
+                }
+                for index in range(1, 13)
+            ]
+        },
+        "documents": [
+            {
+                "id": f"E{index:02d}",
+                "kind": "SOURCE",
+                "path": f"src/file{index}.py",
+                "blob_sha": "a" * 40,
+                "content_sha256": "b" * 64,
+                "untrusted_text": "x" * 6000,
+            }
+            for index in range(1, 13)
+        ],
+    }
+    opportunities = [
+        _opportunity(f"KOP-{index:016x}")
+        for index in range(1, 7)
+    ]
+
+    payload = provider._payload(
+        target=_target(),
+        opportunities=opportunities,
+        target_evidence=evidence,
+        feedback=None,
+    )
+
+    assert provider.prompt_version == "TARGET_FIT_PROMPT_V1R1"
+    assert len(payload["messages"][1]["content"]) <= 48_000
