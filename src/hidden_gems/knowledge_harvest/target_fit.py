@@ -21,7 +21,7 @@ from .validator import load_targets
 
 FIT_ANALYSIS_SCHEMA_VERSION = "KNOWLEDGE_TARGET_FIT_ANALYSIS_V1"
 FIT_RUN_SCHEMA_VERSION = "KNOWLEDGE_TARGET_FIT_RUN_V1"
-FIT_PROMPT_VERSION = "TARGET_FIT_PROMPT_V1R2"
+FIT_PROMPT_VERSION = "TARGET_FIT_PROMPT_V1R3"
 SUPPORTED_PLAN_SCHEMA = "KNOWLEDGE_TRANSFER_PLAN_V1"
 
 FIT_MAX_DOCUMENT_CHARS = 4_000
@@ -29,7 +29,7 @@ FIT_MAX_TOTAL_DOCUMENT_CHARS = 24_000
 
 DEFAULT_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_target_fit_analysis_v1.json"
 DEFAULT_RUN_SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "knowledge_target_fit_run_v1.json"
-DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "knowledge_target_fit_v1r2.txt"
+DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "knowledge_target_fit_v1r3.txt"
 DEFAULT_TARGETS_PATH = Path(__file__).resolve().parents[3] / "config" / "knowledge_targets.json"
 
 CLASSIFICATIONS = (
@@ -144,7 +144,9 @@ def validate_target_fit(
                 f"{result['opportunity_id']}: unknown matched needs: {', '.join(unknown_needs)}"
             )
 
-        classification = str(result["classification"])
+        model_classification = str(result["classification"])
+        applicable = bool(result["applicable"])
+        core_behavior_present = bool(result["core_behavior_present"])
         fit_confidence = str(result["fit_confidence"])
         source_stage = str(opportunity.get("stage") or "")
         source_action = str(opportunity.get("action") or "")
@@ -156,64 +158,54 @@ def validate_target_fit(
         }
         has_implementation_surface = bool(strong_target_kinds & {"SOURCE", "CONFIG"})
 
-        if classification == "ALREADY_PRESENT":
+        if core_behavior_present:
+            if not applicable:
+                raise TargetFitError(
+                    f"{result['opportunity_id']}: core_behavior_present requires applicable=true"
+                )
             if not has_concrete_repository or not has_implementation_surface:
                 raise TargetFitError(
-                    f"{result['opportunity_id']}: ALREADY_PRESENT requires target SOURCE or CONFIG evidence"
+                    f"{result['opportunity_id']}: core_behavior_present requires target SOURCE or CONFIG evidence"
                 )
-        elif classification == "READY_TO_TRANSFER":
-            if not has_concrete_repository:
-                raise TargetFitError(
-                    f"{result['opportunity_id']}: READY_TO_TRANSFER requires a concrete target repository"
-                )
-            if source_stage != "READY_TO_TRANSFER" or source_action != "APPLY":
-                raise TargetFitError(
-                    f"{result['opportunity_id']}: READY_TO_TRANSFER cannot promote source stage {source_stage}"
-                )
-            if (
-                str(opportunity.get("confidence")) != "HIGH"
-                or str(opportunity.get("evidence_status")) != "IMPLEMENTED_TESTED"
-                or str(opportunity.get("risk")) != "LOW"
-                or fit_confidence != "HIGH"
-                or not has_implementation_surface
-            ):
-                raise TargetFitError(
-                    f"{result['opportunity_id']}: READY_TO_TRANSFER requires high-confidence tested source and target integration evidence"
-                )
-        elif classification == "EXPERIMENT_READY":
-            if source_action in {"WATCH", "DISCARD"} or source_stage not in {
-                "READY_TO_TRANSFER",
-                "REQUIRES_LOCAL_EXPERIMENT",
-            }:
-                raise TargetFitError(
-                    f"{result['opportunity_id']}: EXPERIMENT_READY cannot promote source action {source_action}"
-                )
-            if fit_confidence == "LOW":
-                raise TargetFitError(
-                    f"{result['opportunity_id']}: EXPERIMENT_READY requires MEDIUM or HIGH fit confidence"
-                )
+
+        actionable_source = (
+            source_action not in {"WATCH", "DISCARD"}
+            and source_stage in {"READY_TO_TRANSFER", "REQUIRES_LOCAL_EXPERIMENT"}
+        )
+        if applicable and actionable_source and fit_confidence != "LOW":
             if has_concrete_repository and not refs:
                 raise TargetFitError(
-                    f"{result['opportunity_id']}: EXPERIMENT_READY requires target evidence refs"
+                    f"{result['opportunity_id']}: applicable concrete target requires target evidence refs"
                 )
             if not has_concrete_repository and not result.get("matched_needs"):
                 raise TargetFitError(
-                    f"{result['opportunity_id']}: abstract target EXPERIMENT_READY requires matched_needs"
+                    f"{result['opportunity_id']}: applicable abstract target requires matched_needs"
                 )
-        elif classification == "NOT_APPLICABLE":
-            pass
-        else:  # pragma: no cover - schema prevents this
-            raise TargetFitError(
-                f"{result['opportunity_id']}: unsupported classification {classification}"
-            )
 
-        if source_action in {"WATCH", "DISCARD"} and classification not in {
-            "NOT_APPLICABLE",
-            "ALREADY_PRESENT",
-        }:
-            raise TargetFitError(
-                f"{result['opportunity_id']}: WATCH/DISCARD opportunities are not actionable"
-            )
+        ready_invariants = (
+            has_concrete_repository
+            and source_stage == "READY_TO_TRANSFER"
+            and source_action == "APPLY"
+            and str(opportunity.get("confidence")) == "HIGH"
+            and str(opportunity.get("evidence_status")) == "IMPLEMENTED_TESTED"
+            and str(opportunity.get("risk")) == "LOW"
+            and fit_confidence == "HIGH"
+            and has_implementation_surface
+        )
+
+        if core_behavior_present:
+            canonical_classification = "ALREADY_PRESENT"
+        elif not applicable:
+            canonical_classification = "NOT_APPLICABLE"
+        elif not actionable_source or fit_confidence == "LOW":
+            canonical_classification = "NOT_APPLICABLE"
+        elif ready_invariants:
+            canonical_classification = "READY_TO_TRANSFER"
+        else:
+            canonical_classification = "EXPERIMENT_READY"
+
+        result["_model_classification"] = model_classification
+        result["classification"] = canonical_classification
 
     candidate["results"] = sorted(
         (dict(item) for item in candidate["results"]),
@@ -561,6 +553,11 @@ def fit_transfer_plan(
                     "opportunity_id": str(fit["opportunity_id"]),
                     "target_project_id": target_id,
                     "classification": str(fit["classification"]),
+                    "model_classification": str(
+                        fit.get("_model_classification") or fit["classification"]
+                    ),
+                    "applicable": bool(fit["applicable"]),
+                    "core_behavior_present": bool(fit["core_behavior_present"]),
                     "fit_confidence": str(fit["fit_confidence"]),
                     "rationale": str(fit["rationale"]),
                     "matched_needs": sorted(str(value) for value in fit.get("matched_needs", [])),
@@ -646,6 +643,9 @@ def write_target_fit_artifacts(
         "opportunity_id",
         "target_project_id",
         "classification",
+        "model_classification",
+        "applicable",
+        "core_behavior_present",
         "fit_confidence",
         "priority_score",
         "source_stage",
