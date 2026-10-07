@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openutilitylab.com/schemas/knowledge_transfer_plan_v1.json",
+  "title": "KNOWLEDGE_TRANSFER_PLAN_V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "source_run_id",
+    "source_digest",
+    "plan_id",
+    "priority_policy",
+    "opportunity_count",
+    "target_count",
+    "targets",
+    "opportunities"
+  ],
+  "properties": {
+    "schema_version": {"const": "KNOWLEDGE_TRANSFER_PLAN_V1"},
+    "source_schema_version": {"const": "KNOWLEDGE_HARVEST_RUN_V1"},
+    "source_run_id": {"type": "string", "minLength": 1},
+    "source_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "plan_id": {"type": "string", "pattern": "^KTP-[0-9a-f]{16}$"},
+    "priority_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "confidence", "evidence_status", "risk", "integration_cost"],
+      "properties": {
+        "action": {"type": "object"},
+        "confidence": {"type": "object"},
+        "evidence_status": {"type": "object"},
+        "risk": {"type": "object"},
+        "integration_cost": {"type": "object"}
+      }
+    },
+    "opportunity_count": {"type": "integer", "minimum": 0},
+    "target_count": {"type": "integer", "minimum": 0},
+    "targets": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/targetSummary"}
+    },
+    "opportunities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/opportunity"}
+    }
+  },
+  "$defs": {
+    "targetSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_project_id",
+        "opportunity_count",
+        "ready_to_transfer",
+        "requires_local_experiment",
+        "watch",
+        "discard"
+      ],
+      "properties": {
+        "target_project_id": {"type": "string", "minLength": 1},
+        "opportunity_count": {"type": "integer", "minimum": 0},
+        "ready_to_transfer": {"type": "integer", "minimum": 0},
+        "requires_local_experiment": {"type": "integer", "minimum": 0},
+        "watch": {"type": "integer", "minimum": 0},
+        "discard": {"type": "integer", "minimum": 0}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path", "blob_sha", "content_sha256"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^E[0-9]{2}$"},
+        "kind": {"enum": ["DOCUMENTATION", "SOURCE", "TEST", "CONFIG"]},
+        "path": {"type": "string", "minLength": 1},
+        "blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "opportunity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opportunity_id",
+        "target_project_id",
+        "stage",
+        "priority_score",
+        "action",
+        "title",
+        "rationale",
+        "expected_benefit",
+        "integration_cost",
+        "risk",
+        "confidence",
+        "evidence_status",
+        "source_repo",
+        "head_sha",
+        "source_evidence_digest",
+        "evidence_refs",
+        "evidence"
+      ],
+      "properties": {
+        "opportunity_id": {"type": "string", "pattern": "^KOP-[0-9a-f]{16}$"},
+        "target_project_id": {"type": "string", "minLength": 1},
+        "stage": {
+          "enum": [
+            "READY_TO_TRANSFER",
+            "REQUIRES_LOCAL_EXPERIMENT",
+            "WATCH",
+            "DISCARD"
+          ]
+        },
+        "priority_score": {"type": "integer"},
+        "action": {"enum": ["APPLY", "EXPERIMENT", "WATCH", "DISCARD"]},
+        "title": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1},
+        "expected_benefit": {"type": "string", "minLength": 1},
+        "integration_cost": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+        "risk": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+        "confidence": {"enum": ["HIGH", "MEDIUM", "LOW"]},
+        "evidence_status": {
+          "enum": [
+            "DOCUMENTED_ONLY",
+            "PARTIAL_IMPLEMENTATION",
+            "IMPLEMENTED",
+            "IMPLEMENTED_TESTED"
+          ]
+        },
+        "source_repo": {"type": "string", "minLength": 3},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "source_evidence_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^E[0-9]{2}$"}
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/evidence"}
+        }
+      }
+    }
+  }
+}

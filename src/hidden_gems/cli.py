@@ -7,6 +7,7 @@ and integrity failures exit non-zero.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from dataclasses import replace
@@ -132,6 +133,31 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="output_path",
         default=None,
         help="output directory override",
+    )
+
+    plan_knowledge = subparsers.add_parser(
+        "plan-knowledge",
+        help="convert a knowledge harvest artifact into a deterministic transfer queue",
+    )
+    _add_root(plan_knowledge)
+    plan_knowledge.add_argument(
+        "--from-harvest",
+        dest="from_harvest",
+        required=True,
+        help="knowledge_packets.json file or directory containing exactly one",
+    )
+    plan_knowledge.add_argument(
+        "--output",
+        dest="output_path",
+        default=None,
+        help="output directory override (default: transfer-plan beside source artifact)",
+    )
+    plan_knowledge.add_argument(
+        "--target",
+        dest="targets",
+        action="append",
+        default=[],
+        help="limit the transfer plan to one target_project_id; repeat as needed",
     )
 
     validation = subparsers.add_parser(
@@ -390,6 +416,7 @@ def cmd_harvest(args: argparse.Namespace) -> int:
         print(f"ERROR={exc}")
         return 2
 
+    from .knowledge_harvest.planner import plan_from_artifact
     from .knowledge_harvest.provider import KnowledgeDeepSeekProvider
     from .knowledge_harvest.runner import harvest_repositories, repositories_from_candidates
     from .github.client import GitHubClient
@@ -451,11 +478,49 @@ def cmd_harvest(args: argparse.Namespace) -> int:
     if not packets:
         print("RESULT=KNOWLEDGE_HARVEST_FAILED")
         return 1
+
+    try:
+        transfer = plan_from_artifact(
+            result["json_path"],
+            output_dir=output / "transfer-plan",
+        )
+    except Exception as exc:
+        print(f"ERROR=knowledge transfer planning failed: {type(exc).__name__}:{exc}")
+        print("RESULT=KNOWLEDGE_HARVEST_FAILED")
+        return 1
+    print(f"KNOWLEDGE_TRANSFER_PLAN={transfer['json_path']}")
+    print(f"KNOWLEDGE_TRANSFER_PLAN_ID={transfer['plan']['plan_id']}")
+
     if result["errors"]:
         print(f"KNOWLEDGE_ERRORS={len(result['errors'])}")
         print("RESULT=KNOWLEDGE_HARVEST_PARTIAL")
         return 0
     print("RESULT=KNOWLEDGE_HARVEST_SUCCESS")
+    return 0
+
+
+def cmd_plan_knowledge(args: argparse.Namespace) -> int:
+    """Turn harvested hypotheses into a deterministic target-oriented work queue."""
+
+    from .knowledge_harvest.planner import plan_from_artifact
+
+    try:
+        result = plan_from_artifact(
+            args.from_harvest,
+            output_dir=getattr(args, "output_path", None),
+            targets=getattr(args, "targets", None),
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print("RESULT=FAILED_CONFIGURATION")
+        print(f"ERROR=invalid harvest artifact: {type(exc).__name__}:{exc}")
+        return 2
+
+    plan = result["plan"]
+    print(f"TRANSFER_PLAN_ID={plan['plan_id']}")
+    print(f"TRANSFER_OPPORTUNITIES={plan['opportunity_count']}")
+    print(f"TRANSFER_TARGETS={plan['target_count']}")
+    print(f"TRANSFER_OUTPUT={result['json_path']}")
+    print("RESULT=KNOWLEDGE_TRANSFER_PLAN_SUCCESS")
     return 0
 
 
@@ -545,6 +610,7 @@ def main(argv: list[str] | None = None) -> int:
         "db-check": cmd_db_check,
         "run": cmd_run,
         "harvest": cmd_harvest,
+        "plan-knowledge": cmd_plan_knowledge,
         "validation-status": cmd_validation_status,
     }
     handler = handlers.get(args.command)

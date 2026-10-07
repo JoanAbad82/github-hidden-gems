@@ -43,6 +43,32 @@ Run artifacts:
 - `knowledge_packets.json`
 - `opportunities.csv`
 
+## Deterministic transfer planning
+
+Harvest output is an evidence-backed hypothesis set, not an implementation queue by itself. Convert it with:
+
+```bash
+hidden-gems plan-knowledge --from-harvest path/to/knowledge_packets.json
+```
+
+The `harvest` command now generates this transfer plan automatically after a successful packet run; `plan-knowledge` remains available for replaying or filtering an existing artifact without another model call.
+
+The planner performs no network calls and does not modify target projects. It deterministically:
+
+- assigns a stable `KOP-...` id to each harvested opportunity;
+- ranks opportunities with an explicit versioned priority policy;
+- maps `APPLY`, `EXPERIMENT`, `WATCH`, and `DISCARD` to machine-actionable transfer stages;
+- embeds the exact source evidence paths, blob SHAs, and content hashes used by each opportunity;
+- writes one target-specific handoff JSON for every `target_project_id`.
+
+Planner artifacts:
+
+- `knowledge_transfer_plan.json`
+- `knowledge_transfer_plan.csv`
+- `targets/*.json`
+
+The current plan contract is `KNOWLEDGE_TRANSFER_PLAN_V1`; target handoffs use `KNOWLEDGE_TARGET_HANDOFF_V1`. Identical harvest input produces byte-stable JSON/CSV plan output. Transfer remains a separate phase: the planner never clones or changes a target repository.
+
 ## Manual pilot
 
 ```bash
