@@ -127,3 +127,60 @@ def test_llm_enabled_env_var_switches_enrichment_on(monkeypatch, tree: Path):
     monkeypatch.setenv("LLM_ENABLED", "false")
     assert cli.main(["run", "--root", str(tree), "--db", str(db)]) == 0
     assert captured["llm_enabled"] is False
+
+
+
+def test_opt_in_local_trace_records_run_and_summary(monkeypatch, tree: Path, tmp_path: Path):
+    from hidden_gems.local_trace import summarize_trace
+
+    captured: dict = {}
+    _patch_pipeline(monkeypatch, captured)
+    trace = tmp_path / "run-trace.jsonl"
+    monkeypatch.setenv("HIDDEN_GEMS_TRACE_JSONL", str(trace))
+    monkeypatch.setenv("LLM_ENABLED", "false")
+    db = tree / "state" / "history.sqlite3"
+
+    assert cli.main(["run", "--root", str(tree), "--db", str(db), "--controlled-live"]) == 0
+
+    summary = summarize_trace(trace)
+    assert summary["event_counts"] == {"RUN_FINISHED": 1, "RUN_STARTED": 1}
+    assert summary["result_counts"] == {"SUCCESS_NO_FINDINGS": 1}
+    assert summary["safety_summary"]["dry_run_starts"] == 1
+    assert summary["safety_summary"]["controlled_live_starts"] == 1
+    assert summary["safety_summary"]["llm_enabled_starts"] == 0
+    assert summary["started_without_finish"] == []
+
+
+def test_trace_summary_cli_writes_deterministic_summary(tmp_path: Path, capsys):
+    from hidden_gems.local_trace import append_trace_event
+
+    trace = tmp_path / "trace.jsonl"
+    output = tmp_path / "summary.json"
+    append_trace_event(
+        trace,
+        event_type="RUN_STARTED",
+        run_id="RUN-CLI",
+        recorded_at="2026-10-08T16:00:00+00:00",
+        payload={
+            "dry_run": True,
+            "llm_enabled": False,
+            "controlled_live": False,
+            "live_requested": False,
+        },
+    )
+
+    assert cli.main(
+        [
+            "trace-summary",
+            "--trace",
+            str(trace),
+            "--output",
+            str(output),
+        ]
+    ) == 0
+    rendered = capsys.readouterr().out
+    assert "RESULT=TRACE_SUMMARY_SUCCESS" in rendered
+    assert output.exists()
+    payload = __import__("json").loads(output.read_text(encoding="utf-8"))
+    assert payload["run_ids"] == ["RUN-CLI"]
+    assert payload["started_without_finish"] == ["RUN-CLI"]

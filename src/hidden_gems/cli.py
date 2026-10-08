@@ -72,6 +72,23 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_root(db_check)
     db_check.add_argument("--db", dest="db_path", default=None, help="database path override")
 
+    trace_summary = subparsers.add_parser(
+        "trace-summary",
+        help="summarize an opt-in local JSONL run trace deterministically",
+    )
+    _add_root(trace_summary)
+    trace_summary.add_argument(
+        "--trace",
+        required=True,
+        help="local JSONL trace path",
+    )
+    trace_summary.add_argument(
+        "--output",
+        dest="output_path",
+        default=None,
+        help="optional summary JSON output path",
+    )
+
     run = subparsers.add_parser("run", help="run one discovery cycle")
     _add_root(run)
     run.add_argument("--dry-run", action="store_true", help="never publish an Issue")
@@ -334,6 +351,54 @@ def cmd_db_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_trace_summary(args: argparse.Namespace) -> int:
+    from .local_trace import TraceFormatError, summarize_trace
+
+    try:
+        summary = summarize_trace(Path(args.trace).expanduser().resolve())
+    except (OSError, TraceFormatError) as exc:
+        print("RESULT=TRACE_SUMMARY_FAILED")
+        print(f"ERROR={type(exc).__name__}:{exc}")
+        return 2
+
+    rendered = json.dumps(summary, ensure_ascii=True, sort_keys=True, indent=2) + "\n"
+    if getattr(args, "output_path", None):
+        output = Path(args.output_path).expanduser().resolve()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(rendered, encoding="utf-8", newline="\n")
+        print(f"TRACE_SUMMARY_OUTPUT={output}")
+    else:
+        print(rendered, end="")
+    print("RESULT=TRACE_SUMMARY_SUCCESS")
+    return 0
+
+
+def _trace_run_event(path, *, event_type: str, context, payload: dict) -> None:
+    if path is None:
+        return
+    from .local_trace import append_trace_event
+
+    recorded_at = (
+        getattr(context, "started_at", None)
+        if event_type == "RUN_STARTED"
+        else None
+    )
+    if event_type == "RUN_FINISHED":
+        recorded_at = payload.pop("_recorded_at", None)
+    if recorded_at is None:
+        recorded_at = utcnow()
+    try:
+        append_trace_event(
+            path,
+            event_type=event_type,
+            run_id=str(getattr(context, "run_id", "")),
+            recorded_at=recorded_at.isoformat(),
+            payload=payload,
+        )
+    except Exception as exc:
+        print(f"WARN=local_trace_not_written:{type(exc).__name__}", file=sys.stderr)
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     try:
         config = load_config(resolve_root(args))
@@ -368,6 +433,20 @@ def cmd_run(args: argparse.Namespace) -> int:
             enabled = resolve_llm_enabled(config, os.environ)
         else:
             enabled = bool(args.llm)
+        from .local_trace import trace_path_from_env
+
+        trace_path = trace_path_from_env(os.environ)
+        _trace_run_event(
+            trace_path,
+            event_type="RUN_STARTED",
+            context=context,
+            payload={
+                "dry_run": dry_run,
+                "llm_enabled": enabled,
+                "controlled_live": bool(getattr(args, "controlled_live", False)),
+                "live_requested": bool(getattr(args, "live", False)),
+            },
+        )
         llm = _build_llm(config, store, context, enabled)
         publisher = None
         if not dry_run:
@@ -381,6 +460,19 @@ def cmd_run(args: argparse.Namespace) -> int:
             publisher = GitHubIssuePublisher(config, github, repository=repository)
         summary = run_pipeline(
             config, store, github, llm, context, publisher=publisher, llm_enabled=enabled
+        )
+        _trace_run_event(
+            trace_path,
+            event_type="RUN_FINISHED",
+            context=context,
+            payload={
+                "_recorded_at": getattr(summary, "finished_at", None),
+                "result": str(getattr(summary, "result", "")),
+                "dry_run": bool(getattr(summary, "dry_run", True)),
+                "report_published": getattr(summary, "issue", None) is not None,
+                "errors_count": len(getattr(summary, "errors", ()) or ()),
+                "counts": dict(getattr(summary, "counts", {}) or {}),
+            },
         )
     except ConfigError as exc:
         print("RESULT=FAILED_CONFIGURATION")
@@ -759,6 +851,7 @@ def main(argv: list[str] | None = None) -> int:
         "validate-config": cmd_validate_config,
         "migrate": cmd_migrate,
         "db-check": cmd_db_check,
+        "trace-summary": cmd_trace_summary,
         "run": cmd_run,
         "harvest": cmd_harvest,
         "plan-knowledge": cmd_plan_knowledge,
