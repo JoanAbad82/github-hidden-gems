@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openutilitylab.com/schemas/experiment_queue_v1.json",
+  "title": "EXPERIMENT_QUEUE_V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "queue_id",
+    "fit_id",
+    "plan_id",
+    "source_run_id",
+    "eligible_classifications",
+    "experiment_count",
+    "deferred_count",
+    "excluded_count",
+    "experiments",
+    "deferred"
+  ],
+  "properties": {
+    "schema_version": {"const": "EXPERIMENT_QUEUE_V1"},
+    "queue_id": {"type": "string", "pattern": "^EXQ-[0-9a-f]{16}$"},
+    "fit_id": {"type": "string", "pattern": "^KFG-[0-9a-f]{16}$"},
+    "plan_id": {"type": "string", "pattern": "^KTP-[0-9a-f]{16}$"},
+    "source_run_id": {"type": "string", "minLength": 1},
+    "eligible_classifications": {
+      "type": "array",
+      "const": ["EXPERIMENT_READY", "READY_TO_TRANSFER"]
+    },
+    "experiment_count": {"type": "integer", "minimum": 0},
+    "deferred_count": {"type": "integer", "minimum": 0},
+    "excluded_count": {"type": "integer", "minimum": 0},
+    "experiments": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/experiment"}
+    },
+    "deferred": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/deferred"}
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path", "blob_sha", "content_sha256"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^E[0-9]{2}$"},
+        "kind": {"enum": ["DOCUMENTATION", "SOURCE", "TEST", "CONFIG"]},
+        "path": {"type": "string", "minLength": 1},
+        "blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "executionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "isolated_branch",
+        "branch_prefix",
+        "no_auto_merge",
+        "no_external_code_execution",
+        "max_scope"
+      ],
+      "properties": {
+        "isolated_branch": {"const": true},
+        "branch_prefix": {"type": "string", "pattern": "^experiment/exp-[0-9a-f]{16}$"},
+        "no_auto_merge": {"const": true},
+        "no_external_code_execution": {"const": true},
+        "max_scope": {"const": "BOUNDED_LOCAL_EXPERIMENT"}
+      }
+    },
+    "experiment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "experiment_id",
+        "opportunity_id",
+        "state",
+        "gate_classification",
+        "target_project_id",
+        "target_repository",
+        "target_head_sha",
+        "target_evidence_digest",
+        "target_evidence",
+        "source_repo",
+        "source_head_sha",
+        "source_evidence_digest",
+        "source_stage",
+        "source_action",
+        "source_evidence_status",
+        "source_evidence",
+        "title",
+        "hypothesis",
+        "invariant_under_test",
+        "integration_surface",
+        "expected_benefit",
+        "risk",
+        "integration_cost",
+        "source_confidence",
+        "fit_confidence",
+        "priority_score",
+        "required_validation_commands",
+        "success_criteria",
+        "falsifier",
+        "rollback",
+        "execution_policy"
+      ],
+      "properties": {
+        "experiment_id": {"type": "string", "pattern": "^EXP-[0-9a-f]{16}$"},
+        "opportunity_id": {"type": "string", "pattern": "^KOP-[0-9a-f]{16}$"},
+        "state": {"const": "QUEUED"},
+        "gate_classification": {"enum": ["EXPERIMENT_READY", "READY_TO_TRANSFER"]},
+        "target_project_id": {"type": "string", "minLength": 1},
+        "target_repository": {"type": "string", "minLength": 3},
+        "target_head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "target_evidence_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "target_evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+        "source_repo": {"type": "string", "minLength": 3},
+        "source_head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "source_evidence_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_stage": {"enum": ["READY_TO_TRANSFER", "REQUIRES_LOCAL_EXPERIMENT"]},
+        "source_action": {"enum": ["APPLY", "EXPERIMENT"]},
+        "source_evidence_status": {
+          "enum": ["DOCUMENTED_ONLY", "PARTIAL_IMPLEMENTATION", "IMPLEMENTED", "IMPLEMENTED_TESTED"]
+        },
+        "source_evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}},
+        "title": {"type": "string", "minLength": 1},
+        "hypothesis": {"type": "string", "minLength": 1},
+        "invariant_under_test": {"type": "string", "minLength": 1},
+        "integration_surface": {"type": ["string", "null"]},
+        "expected_benefit": {"type": "string", "minLength": 1},
+        "risk": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+        "integration_cost": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+        "source_confidence": {"enum": ["HIGH", "MEDIUM", "LOW"]},
+        "fit_confidence": {"enum": ["HIGH", "MEDIUM", "LOW"]},
+        "priority_score": {"type": "integer"},
+        "required_validation_commands": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "success_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "falsifier": {"type": "string", "minLength": 1},
+        "rollback": {"type": "string", "minLength": 1},
+        "execution_policy": {"$ref": "#/$defs/executionPolicy"}
+      }
+    },
+    "deferred": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opportunity_id", "target_project_id", "classification", "reason"],
+      "properties": {
+        "opportunity_id": {"type": "string", "pattern": "^KOP-[0-9a-f]{16}$"},
+        "target_project_id": {"type": "string", "minLength": 1},
+        "classification": {"enum": ["EXPERIMENT_READY", "READY_TO_TRANSFER"]},
+        "reason": {"const": "ABSTRACT_TARGET_NO_PINNED_REPOSITORY"}
+      }
+    }
+  }
+}
