@@ -20,6 +20,7 @@ from hidden_gems.models import (
 from hidden_gems.reporting.artifacts import (
     SCHEMA_VERSION,
     ScoredCandidateArtifact,
+    read_run_artifact,
     write_run_artifacts,
 )
 
@@ -175,3 +176,56 @@ def test_empty_run_still_emits_both_artifacts(tmp_path):
     assert payload["candidate_count"] == 0
     assert payload["candidates"] == []
     assert csv_path.read_text(encoding="utf-8").startswith("run_id,report_rank,selected_for_report,")
+
+
+
+def test_read_run_artifact_missing_is_fail_soft(tmp_path):
+    result = read_run_artifact(tmp_path / "missing.json")
+
+    assert result.status == "MISSING"
+    assert result.payload is None
+    assert result.error is None
+
+
+def test_read_run_artifact_malformed_is_fail_soft(tmp_path):
+    path = tmp_path / "candidates.json"
+    path.write_text("{not-json", encoding="utf-8")
+
+    result = read_run_artifact(path)
+
+    assert result.status == "MALFORMED"
+    assert result.payload is None
+    assert result.error.startswith("JSONDecodeError:")
+
+
+def test_read_run_artifact_schema_mismatch_is_fail_soft(tmp_path):
+    path = tmp_path / "candidates.json"
+    path.write_text(
+        json.dumps({"schema_version": "RUN_CANDIDATES_V0", "candidates": []}),
+        encoding="utf-8",
+    )
+
+    result = read_run_artifact(path)
+
+    assert result.status == "SCHEMA_MISMATCH"
+    assert result.payload is None
+    assert result.error
+
+
+def test_read_run_artifact_valid_snapshot_round_trip(tmp_path):
+    json_path, _ = write_run_artifacts(
+        tmp_path,
+        context=_context(),
+        result="SUCCESS_NO_FINDINGS",
+        counts={"scored": 0, "reported": 0},
+        errors=(),
+        candidates=(),
+        selected=(),
+    )
+
+    result = read_run_artifact(json_path)
+
+    assert result.status == "OK"
+    assert result.payload is not None
+    assert result.payload["schema_version"] == "RUN_CANDIDATES_V1"
+    assert result.payload["candidate_count"] == 0

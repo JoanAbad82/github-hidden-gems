@@ -10,6 +10,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
+
 from ..models import (
     DeepAnalysis,
     DiscoveryCandidate,
@@ -75,6 +78,78 @@ class ScoredCandidateArtifact:
     deep: DeepAnalysis | None
     score: HiddenGemScore
     decision: NotificationDecision
+
+
+@dataclass(frozen=True)
+class ArtifactLoadResult:
+    """Fail-soft read result for derived run artifacts.
+
+    Missing, malformed, or schema-incompatible derived artifacts are observable
+    states rather than exceptions. This helper is intentionally not used for
+    canonical state/history integrity checks.
+    """
+
+    status: str
+    payload: Mapping[str, Any] | None
+    error: str | None = None
+
+
+def read_run_artifact(
+    path: Path | str,
+    *,
+    schema_path: Path | str | None = None,
+) -> ArtifactLoadResult:
+    """Read one derived RUN_CANDIDATES_V1 JSON artifact without taking down callers."""
+
+    candidate = Path(path)
+    if not candidate.is_file():
+        return ArtifactLoadResult(status="MISSING", payload=None)
+
+    try:
+        raw = candidate.read_text(encoding="utf-8")
+    except OSError as exc:
+        return ArtifactLoadResult(
+            status="UNREADABLE",
+            payload=None,
+            error=f"{type(exc).__name__}:{exc}",
+        )
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return ArtifactLoadResult(
+            status="MALFORMED",
+            payload=None,
+            error=f"JSONDecodeError:{exc.msg}",
+        )
+
+    if not isinstance(payload, Mapping):
+        return ArtifactLoadResult(
+            status="SCHEMA_MISMATCH",
+            payload=None,
+            error="artifact root must be a JSON object",
+        )
+
+    schema_file = (
+        Path(schema_path)
+        if schema_path is not None
+        else Path(__file__).resolve().parents[3] / "schemas" / "run_candidates_v1.json"
+    )
+    try:
+        schema = json.loads(schema_file.read_text(encoding="utf-8"))
+        Draft202012Validator(schema).validate(dict(payload))
+    except (OSError, json.JSONDecodeError) as exc:
+        # The local schema is authoritative configuration, not a derived artifact.
+        raise RuntimeError(f"run artifact schema unavailable: {type(exc).__name__}:{exc}") from exc
+    except JsonSchemaValidationError as exc:
+        location = "/".join(str(part) for part in exc.absolute_path) or "<root>"
+        return ArtifactLoadResult(
+            status="SCHEMA_MISMATCH",
+            payload=None,
+            error=f"{location}:{exc.message}",
+        )
+
+    return ArtifactLoadResult(status="OK", payload=dict(payload))
 
 
 def artifact_paths(root: Path | str, run_id: str) -> tuple[Path, Path]:
