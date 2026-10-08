@@ -185,6 +185,44 @@ def _build_parser() -> argparse.ArgumentParser:
         help="limit target-fit analysis to one target_project_id; repeat as needed",
     )
 
+    queue_experiments = subparsers.add_parser(
+        "queue-experiments",
+        help="convert canonical target-fit output into deterministic bounded experiment specs",
+    )
+    _add_root(queue_experiments)
+    queue_experiments.add_argument(
+        "--from-plan",
+        dest="from_plan",
+        required=True,
+        help="knowledge_transfer_plan.json file or directory containing exactly one",
+    )
+    queue_experiments.add_argument(
+        "--from-fit",
+        dest="from_fit",
+        required=True,
+        help="knowledge_target_fit.json file or directory containing exactly one",
+    )
+    queue_experiments.add_argument(
+        "--output",
+        dest="output_path",
+        default=None,
+        help="output directory override (default: experiment-queue beside target-fit)",
+    )
+    queue_experiments.add_argument(
+        "--target",
+        dest="targets",
+        action="append",
+        default=[],
+        help="limit the queue to one target_project_id; repeat as needed",
+    )
+    queue_experiments.add_argument(
+        "--opportunity",
+        dest="opportunities",
+        action="append",
+        default=[],
+        help="limit the queue to one KOP opportunity id; repeat as needed",
+    )
+
     validation = subparsers.add_parser(
         "validation-status", help="evaluate the seven-cycle V1 acceptance gate (read-only)"
     )
@@ -441,6 +479,7 @@ def cmd_harvest(args: argparse.Namespace) -> int:
         print(f"ERROR={exc}")
         return 2
 
+    from .knowledge_harvest.experiment_queue import queue_from_artifacts
     from .knowledge_harvest.planner import plan_from_artifact
     from .knowledge_harvest.provider import KnowledgeDeepSeekProvider
     from .knowledge_harvest.runner import harvest_repositories, repositories_from_candidates
@@ -539,6 +578,26 @@ def cmd_harvest(args: argparse.Namespace) -> int:
                     0,
                     int(fit["requested_count"]) - int(fit["classified_count"]),
                 )
+                if fit_errors == 0:
+                    try:
+                        queued = queue_from_artifacts(
+                            plan_source=transfer["json_path"],
+                            fit_source=fitted["json_path"],
+                            output_dir=output / "experiment-queue",
+                        )
+                    except Exception as exc:
+                        fit_errors = 1
+                        print(
+                            f"ERROR=experiment queue generation failed: "
+                            f"{type(exc).__name__}:{exc}"
+                        )
+                    else:
+                        print(f"KNOWLEDGE_EXPERIMENT_QUEUE={queued['json_path']}")
+                        print(f"KNOWLEDGE_EXPERIMENT_QUEUE_ID={queued['queue']['queue_id']}")
+                        print(
+                            f"KNOWLEDGE_EXPERIMENT_QUEUE_READY="
+                            f"{queued['queue']['experiment_count']}"
+                        )
             except Exception as exc:
                 fit_errors = 1
                 print(f"ERROR=knowledge target-fit failed: {type(exc).__name__}:{exc}")
@@ -671,7 +730,52 @@ def cmd_fit_knowledge(args: argparse.Namespace) -> int:
         print(f"TARGET_FIT_ERRORS={len(fit['errors'])}")
         print("RESULT=KNOWLEDGE_TARGET_FIT_PARTIAL")
         return 0
+
+    from .knowledge_harvest.experiment_queue import queue_from_artifacts
+
+    try:
+        queued = queue_from_artifacts(
+            plan_source=args.from_plan,
+            fit_source=result["json_path"],
+            output_dir=result["json_path"].parent / "experiment-queue",
+            targets=sorted(selected_targets),
+        )
+    except Exception as exc:
+        print(f"ERROR=experiment queue generation failed: {type(exc).__name__}:{exc}")
+        print("RESULT=KNOWLEDGE_TARGET_FIT_PARTIAL")
+        return 0
+    print(f"EXPERIMENT_QUEUE={queued['json_path']}")
+    print(f"EXPERIMENT_QUEUE_ID={queued['queue']['queue_id']}")
+    print(f"EXPERIMENT_QUEUE_READY={queued['queue']['experiment_count']}")
     print("RESULT=KNOWLEDGE_TARGET_FIT_SUCCESS")
+    return 0
+
+
+def cmd_queue_experiments(args: argparse.Namespace) -> int:
+    """Build deterministic bounded experiment specs from canonical target-fit output."""
+
+    from .knowledge_harvest.experiment_queue import queue_from_artifacts
+
+    try:
+        result = queue_from_artifacts(
+            plan_source=args.from_plan,
+            fit_source=args.from_fit,
+            output_dir=getattr(args, "output_path", None),
+            targets=getattr(args, "targets", None),
+            opportunities=getattr(args, "opportunities", None),
+        )
+    except Exception as exc:
+        print("RESULT=FAILED_CONFIGURATION")
+        print(f"ERROR=invalid experiment queue inputs: {type(exc).__name__}:{exc}")
+        return 2
+
+    queue = result["queue"]
+    print(f"EXPERIMENT_QUEUE_ID={queue['queue_id']}")
+    print(f"EXPERIMENT_QUEUE_READY={queue['experiment_count']}")
+    print(f"EXPERIMENT_QUEUE_DEFERRED={queue['deferred_count']}")
+    print(f"EXPERIMENT_QUEUE_EXCLUDED={queue['excluded_count']}")
+    print(f"EXPERIMENT_QUEUE_OUTPUT={result['json_path']}")
+    print("RESULT=EXPERIMENT_QUEUE_SUCCESS")
     return 0
 
 
@@ -763,6 +867,7 @@ def main(argv: list[str] | None = None) -> int:
         "harvest": cmd_harvest,
         "plan-knowledge": cmd_plan_knowledge,
         "fit-knowledge": cmd_fit_knowledge,
+        "queue-experiments": cmd_queue_experiments,
         "validation-status": cmd_validation_status,
     }
     handler = handlers.get(args.command)

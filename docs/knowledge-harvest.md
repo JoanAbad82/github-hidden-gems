@@ -100,6 +100,28 @@ A normal `hidden-gems harvest` now performs harvest → deterministic transfer p
 
 The manual GitHub Actions workflow `knowledge-target-fit` can replay only the target-fit gate from a prior knowledge-harvest run id. This reuses the frozen transfer plan while evaluating it against the current target repository heads, so target-fit logic can be revised or target projects can evolve without repeating source harvest.
 
+## Experiment queue
+
+Canonical target-fit results are converted into immutable bounded experiment specifications:
+
+```bash
+hidden-gems queue-experiments \
+  --from-plan path/to/knowledge_transfer_plan.json \
+  --from-fit path/to/knowledge_target_fit.json
+```
+
+`EXPERIMENT_QUEUE_V1` admits only canonical `EXPERIMENT_READY` and `READY_TO_TRANSFER` results with a concrete target repository, pinned target commit, and target evidence digest. `ALREADY_PRESENT` and `NOT_APPLICABLE` never enter the queue. Actionable abstract targets are deferred fail-closed until they have a pinned repository.
+
+Every queued experiment receives a deterministic `EXP-...` id and records the exact source and target provenance, hypothesis, invariant under test, integration surface, expected benefit, risk/cost, required validation commands, success criteria, falsifier, rollback rule, and execution policy. The initial queue state is always `QUEUED`.
+
+Execution state is deliberately separate from the immutable queue. A completed bounded experiment writes an `EXPERIMENT_RESULT_V1` artifact with final state `PASSED`, `FAILED`, or `REJECTED`, command-level checks, observations, falsifier status, and evidence files. Experiment specs require isolated branches/worktrees, prohibit external-repository code execution, and set `no_auto_merge=true`.
+
+A successful full harvest now performs:
+
+`harvest → transfer plan → target-fit → experiment queue`
+
+The standalone `fit-knowledge` command also emits an experiment queue after a complete target-fit run.
+
 ## Manual pilot
 
 ```bash
