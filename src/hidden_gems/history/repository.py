@@ -19,6 +19,10 @@ from ..models import (
 _REPORT_STATES = ("NONE", "PENDING_REPORT", "REPORT_PUBLISHED")
 
 
+class ReportStateConflict(RuntimeError):
+    """Raised when a report action no longer matches the currently open pending report."""
+
+
 @dataclass(frozen=True)
 class RepoNotificationState:
     """What reporting needs to know about a repository's notification history."""
@@ -564,13 +568,17 @@ class RepositoryMixin:
         self, fingerprint: str, *, issue_number: int, issue_url: str, published_at: datetime, run_id: str
     ) -> None:
         with self.transaction() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 UPDATE runs SET report_state = 'REPORT_PUBLISHED', issue_number = ?, issue_url = ?
-                WHERE report_fingerprint = ?
+                WHERE run_id = ? AND report_fingerprint = ? AND report_state = 'PENDING_REPORT'
                 """,
-                (int(issue_number), issue_url, fingerprint),
+                (int(issue_number), issue_url, run_id, fingerprint),
             )
+            if cursor.rowcount != 1:
+                raise ReportStateConflict(
+                    "report action is stale or no longer targets the currently pending report"
+                )
 
     def run_row(self, run_id: str) -> dict[str, Any] | None:
         row = self._connection.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
