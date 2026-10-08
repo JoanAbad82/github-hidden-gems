@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
+from hidden_gems.history.repository import ReportStateConflict
 from hidden_gems.models import DeepAnalysis, HiddenGemScore
 from tests.unit.history.conftest import NOW
 
@@ -238,3 +241,108 @@ def test_failed_transaction_does_not_leave_partial_repository(store, repo_ref):
             raise RuntimeError("forced")
     assert store.get_repository(repo_ref.github_repo_id) is None
     assert store.notification_exists("FIRST_DISCOVERY:4242") is False
+
+
+
+def test_mark_report_published_rejects_stale_duplicate_action(store):
+    store.start_run(
+        run_id="run-stale",
+        started_at=NOW,
+        dry_run=False,
+        config_version="1.0.0",
+        score_version="HIDDEN_GEM_SCORE_V1",
+        prompt_version="DEEP_ANALYZER_PROMPT_V1",
+        budgets={},
+    )
+    store.save_pending_report(
+        fingerprint="REPORT:stale",
+        run_id="run-stale",
+        created_at=NOW,
+        payload="# report",
+    )
+    store.mark_report_published(
+        "REPORT:stale",
+        issue_number=7,
+        issue_url="https://example/7",
+        published_at=NOW,
+        run_id="run-stale",
+    )
+
+    with pytest.raises(ReportStateConflict):
+        store.mark_report_published(
+            "REPORT:stale",
+            issue_number=8,
+            issue_url="https://example/8",
+            published_at=NOW,
+            run_id="run-stale",
+        )
+
+    row = store.run_row("run-stale")
+    assert row["report_state"] == "REPORT_PUBLISHED"
+    assert row["issue_number"] == 7
+    assert row["issue_url"] == "https://example/7"
+
+
+def test_mark_report_published_revalidates_run_identity(store):
+    store.start_run(
+        run_id="run-open",
+        started_at=NOW,
+        dry_run=False,
+        config_version="1.0.0",
+        score_version="HIDDEN_GEM_SCORE_V1",
+        prompt_version="DEEP_ANALYZER_PROMPT_V1",
+        budgets={},
+    )
+    store.save_pending_report(
+        fingerprint="REPORT:identity",
+        run_id="run-open",
+        created_at=NOW,
+        payload="# report",
+    )
+
+    with pytest.raises(ReportStateConflict):
+        store.mark_report_published(
+            "REPORT:identity",
+            issue_number=11,
+            issue_url="https://example/11",
+            published_at=NOW,
+            run_id="run-wrong",
+        )
+
+    row = store.run_row("run-open")
+    assert row["report_state"] == "PENDING_REPORT"
+    assert row["issue_number"] is None
+
+
+def test_mark_report_published_updates_only_current_pending_row(store):
+    for offset, run_id in enumerate(("run-a", "run-b")):
+        store.start_run(
+            run_id=run_id,
+            started_at=NOW + timedelta(seconds=offset),
+            dry_run=False,
+            config_version="1.0.0",
+            score_version="HIDDEN_GEM_SCORE_V1",
+            prompt_version="DEEP_ANALYZER_PROMPT_V1",
+            budgets={},
+        )
+        store.save_pending_report(
+            fingerprint="REPORT:shared",
+            run_id=run_id,
+            created_at=NOW + timedelta(seconds=offset),
+            payload=f"# {run_id}",
+        )
+
+    store.mark_report_published(
+        "REPORT:shared",
+        issue_number=21,
+        issue_url="https://example/21",
+        published_at=NOW,
+        run_id="run-a",
+    )
+
+    first = store.run_row("run-a")
+    second = store.run_row("run-b")
+    assert first["report_state"] == "REPORT_PUBLISHED"
+    assert first["issue_number"] == 21
+    assert second["report_state"] == "PENDING_REPORT"
+    assert second["issue_number"] is None
