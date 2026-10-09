@@ -1,5 +1,8 @@
 # GitHub Hidden Gems V1
 
+[![CI](https://github.com/JoanAbad82/github-hidden-gems/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/JoanAbad82/github-hidden-gems/actions/workflows/tests.yml)
+
+
 Low-cost, GitHub-native discovery system that finds, scores, remembers
 and reports **low-visibility but valuable** public repositories in four equally
 weighted areas: AI/agents, automation, data extraction/analysis, and trading.
