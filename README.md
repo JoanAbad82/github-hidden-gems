@@ -54,6 +54,10 @@ only when the score is at least 85).
 
 ## Quick start (offline)
 
+GitHub Codespaces and compatible Dev Container clients can use the checked-in
+`.devcontainer/devcontainer.json` to provision Python 3.11 and install the
+project's development dependencies automatically.
+
 ```bash
 python -m pip install -e ".[dev]"
 hidden-gems validate-config --root .     # RESULT=CONFIG_VALID
