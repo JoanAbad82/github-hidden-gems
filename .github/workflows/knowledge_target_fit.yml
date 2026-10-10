@@ -67,7 +67,7 @@ jobs:
 
       - name: Upload target-fit replay
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: target-fit-replay-${{ inputs.harvest_run_id }}-${{ github.run_id }}
           path: artifacts/target-fit-replay/${{ inputs.harvest_run_id }}/
