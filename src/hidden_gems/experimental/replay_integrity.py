@@ -25,7 +25,9 @@ from hidden_gems.reporting.artifacts import _CSV_FIELDS, _csv_row
 
 
 MAX_BYTES = 8 * 1024 * 1024
+RUN_CANDIDATES_V1_SCHEMA_SHA256 = "2521ed1a6154aabc8dd8f93c75707b55cee5602fdc0bff5633eec54317cc82b8"
 _SHA256_PATTERN = re.compile(r"[0-9a-fA-F]{64}\Z")
+_REFERENCE_KEYWORDS = frozenset({"$ref", "$dynamicRef", "$recursiveRef"})
 
 
 class ReplayIntegrityError(ValueError):
@@ -42,6 +44,7 @@ class RunPairAudit:
     json_sha256: str
     csv_sha256: str
     validated: bool = True
+    matched_expected_digests: bool = False
 
 
 def validate_run_pair(
@@ -51,11 +54,17 @@ def validate_run_pair(
     expected_sha256_json: str | None = None,
     expected_sha256_csv: str | None = None,
 ) -> RunPairAudit:
-    """Validate and byte-replay one JSON/CSV artifact pair without writing."""
+    """Check pair consistency and, when both are supplied, expected digests."""
+
+    if (expected_sha256_json is None) != (expected_sha256_csv is None):
+        raise ReplayIntegrityError("trusted JSON and CSV SHA-256 digests must be supplied as a pair")
 
     json_bytes = _read_bounded(json_path, "JSON")
     csv_bytes = _read_bounded(csv_path, "CSV")
     schema_bytes = _read_bounded(schema_path, "schema")
+    schema_digest = hashlib.sha256(schema_bytes).hexdigest()
+    if not hmac.compare_digest(schema_digest, RUN_CANDIDATES_V1_SCHEMA_SHA256):
+        raise ReplayIntegrityError("canonical RUN_CANDIDATES_V1 schema SHA-256 mismatch")
     json_digest = hashlib.sha256(json_bytes).hexdigest()
     csv_digest = hashlib.sha256(csv_bytes).hexdigest()
     _check_digest("JSON", json_digest, expected_sha256_json)
@@ -63,6 +72,7 @@ def validate_run_pair(
 
     payload = _parse_object(json_bytes, "JSON artifact")
     schema = _parse_object(schema_bytes, "JSON schema")
+    _validate_schema_references(schema)
     try:
         jsonschema.Draft202012Validator.check_schema(schema)
         jsonschema.Draft202012Validator(schema).validate(payload)
@@ -82,6 +92,7 @@ def validate_run_pair(
         reported_count=reported_count,
         json_sha256=json_digest,
         csv_sha256=csv_digest,
+        matched_expected_digests=expected_sha256_json is not None,
     )
 
 
@@ -143,6 +154,33 @@ def _check_digest(label: str, actual: str, expected: str | None) -> None:
         raise ReplayIntegrityError(f"trusted {label} SHA-256 digest mismatch")
 
 
+def _validate_schema_references(schema: dict[str, Any]) -> None:
+    """Reject every schema reference except an existing top-level local definition."""
+
+    definitions = schema.get("$defs")
+    if not isinstance(definitions, dict):
+        definitions = {}
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in _REFERENCE_KEYWORDS:
+                    prefix = "#/$defs/"
+                    if (
+                        not isinstance(child, str)
+                        or not child.startswith(prefix)
+                        or "/" in child[len(prefix) :]
+                        or child[len(prefix) :] not in definitions
+                    ):
+                        raise ReplayIntegrityError(f"disallowed or missing schema reference: {child!r}")
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    walk(schema)
+
+
 def _validate_semantics(payload: dict[str, Any]) -> tuple[str, int, int]:
     candidates = payload["candidates"]
     candidate_count = payload["candidate_count"]
@@ -188,6 +226,7 @@ def _render_csv(run_id: str, candidates: Iterable[dict[str, Any]]) -> bytes:
 
 __all__ = [
     "MAX_BYTES",
+    "RUN_CANDIDATES_V1_SCHEMA_SHA256",
     "ReplayIntegrityError",
     "RunPairAudit",
     "validate_run_pair",

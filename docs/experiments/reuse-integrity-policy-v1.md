@@ -16,10 +16,12 @@ Both implementations below are original and stand-alone; they preserve the invar
 
 Import `hidden_gems.experimental.replay_integrity.validate_run_pair` to *read* existing `RUN_CANDIDATES_V1` JSON/CSV files and the existing `schemas/run_candidates_v1.json` **without changing the exporter**. This checks:
 
-1. Bounded reads, strict UTF-8, duplicate-key rejection (all nesting), non-finite JSON values, malformed/truncated JSON, valid Draft 2020-12 schema.
+1. Bounded reads, strict UTF-8, duplicate-key rejection (all nesting), non-finite JSON values, malformed/truncated JSON, and valid Draft 2020-12 schema. The canonical schema bytes must first match the hardcoded SHA-256 `2521ed1a6154aabc8dd8f93c75707b55cee5602fdc0bff5633eec54317cc82b8`; mismatch fails before `jsonschema` validation or reference resolution. As defense in depth, `$ref`, `$dynamicRef`, and `$recursiveRef` are recursively restricted to current, existing `#/$defs/...` entries. External and nonfragment references are rejected without network access.
 2. Internal semantic consistency: candidate count, unique repository IDs, selected flags, unique/contiguous report ranks, reported count.
 3. Original CSV rendered **byte-for-byte** from the JSON via the already existing `_CSV_FIELDS` and `_csv_row` functions. No migration, hashing-format change or alternate exporter.
-4. Optional **externally trusted** SHA-256 digests for each source file. **Without those trusted digests, coordinated tampering of both JSON and CSV cannot be detected cryptographically.** Hashes supplied only by the artifacts themselves are not trust anchors.
+4. Optional **externally expected** SHA-256 digests for the two source files. They are all-or-nothing: supplying only JSON or only CSV fails closed. `RunPairAudit.validated=True` means only that schema, semantic, and JSON/CSV replay **consistency** checks passed. `RunPairAudit.matched_expected_digests=True` is set only when both expected digests were supplied and matched. **Without independently obtained expected digests, coordinated tampering of both JSON and CSV—including changes to `run.errors`, which CSV does not represent—cannot be detected cryptographically.** Digests copied from the artifacts being checked are not a trust anchor.
+
+Expected-digest matching is not provenance verification. The caller must acquire both expected values independently, outside the artifact pair and its storage/transport trust boundary. Even a `matched_expected_digests=True` result attests only that the bytes match those caller-provided values; it is neither a signature nor proof of who produced or transported them.
 
 Independent read-only replay of archived *production-generated* dry-run snapshots (not production modifications):
 
@@ -30,14 +32,15 @@ Independent read-only replay of archived *production-generated* dry-run snapshot
 
 Both snapshots independently passed schema, semantic, exact CSV, and external SHA-256 checks. The artifacts were never rewritten.
 
-**Limitations:** This is neither a signature verifier nor an acquisition-provenance attestation. The replay formatter calls private functions of the existing writer; future writer changes require deliberately updated tests. It is deliberately not connected to `daily-discovery`.
+**Limitations:** This is neither a signature verifier nor an acquisition-provenance attestation. The replay formatter calls private functions of the existing writer. SHA-pinned golden tests for the original V1 empty-run and Unicode JSON/CSV bytes detect accidental format drift even if writer and checker change together; any future writer change therefore requires an explicit, reviewed golden update. It is deliberately not connected to `daily-discovery`.
 
 ## B. Monotonic policy: ORCA-POLICY-MONOTONIC-V1
 
-`hidden_gems.experimental.policy_monotonic` offers an **in-memory declarative decision function**, not an executor. Three outcomes are ordered `ALLOW < ASK < DENY`. Its join is associative, commutative, idempotent and monotonic. Existing DENY is terminal; absence of any rule's required state fails closed before evaluating rules; invalid inputs also fail closed. No callbacks, GitHub API, Codex, SSH, filesystem writes or remote action mechanisms are included.
+`hidden_gems.experimental.policy_monotonic` is an isolated, side-effect-free decision model, **not an executor or authorization system**. Verdicts are ordered `ALLOW < ASK < DENY`; the join is associative, commutative, idempotent and monotonic. A `DENY` seed is terminal.
 
-**Limitations:** Merely evaluating a policy does not enforce it; actual authorization would require separately reviewed executor boundaries, trusted state snapshots, concurrency/atomic-budget semantics, replay defense, and explicit owner authorization. **Do not wire this experimental evaluator into agent execution without those controls.**
+After the security audit, its `evaluate_policy` entrypoint now **denies by default when there is no explicit, nonempty required-rule manifest**. The manifest must match the declared rules exactly, with no missing or extra names. It accepts only inert builtin tuple/list containers holding exact frozen `PolicyRule` objects, and plain dictionaries holding safely typed scalar state. Arbitrary iterables, user-supplied Mapping subclasses, missing required keys, invalid values (including `None` and nonfinite floats), and unnamed state dependencies **fail closed**. The previous cases `evaluate_policy(())` -> ALLOW and `requires_state=True, state={}` -> ALLOW are eliminated.
 
+**Important residual trust boundary:** The caller must **independently authenticate the rule manifest**, determine whether the rule outputs are correct, verify freshness and authority of state, and enforce actual permissions. The module does not know whether a claimed budget is sufficient, signed or atomic. It cannot authorize GitHub/Codex/Desktop Commander operations; no executor integration exists and none is approved. All tests use synthetic rules and data. Never connect this module to a real agent without a separate security design and explicit owner approval.
 ## Quality gates
 
 - Tests: `python -m pytest -q tests/unit/experimental`, plus full offline regression (`python -m pytest -q -m "not live"`) and whitespace/static contract checks.
