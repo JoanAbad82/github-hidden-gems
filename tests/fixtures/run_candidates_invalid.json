@@ -1,0 +1,102 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "deep_analysis": {
+        "confidence": "MEDIUM",
+        "evidence": {
+          "observed": [
+            "src/main.py"
+          ]
+        },
+        "originality_suggestion": 4,
+        "relevance_suggestion": 15,
+        "risks": [
+          "young project"
+        ],
+        "source": "PROVIDER",
+        "status": "OK",
+        "summary": "Compact automation repository.",
+        "why_interesting": "Useful automation primitive."
+      },
+      "light_analysis": {
+        "activity_level": "STRONG",
+        "dependency_hash": "deps-2001",
+        "detected_areas": [
+          "ai_agents",
+          "automation"
+        ],
+        "evidence": {
+          "nested": {
+            "a": 1,
+            "b": 2
+          },
+          "tree_paths": [
+            "src/main.py",
+            "tests/test_main.py"
+          ]
+        },
+        "latest_release_at": "2026-10-06T13:22:02Z",
+        "latest_release_tag": "v1.0.0",
+        "latest_relevant_activity_at": "2026-10-06T13:22:02Z",
+        "negative_signals": [],
+        "quality_signals": [
+          "manifest",
+          "tests"
+        ],
+        "readme_hash": "readme-2001",
+        "relevant_content_hash": "content-2001",
+        "tree_hash": "tree-2001"
+      },
+      "notification": {
+        "current_score": 90,
+        "notification_type": "NEW_DISCOVERY",
+        "notify": true,
+        "previous_score": null,
+        "trigger_fingerprint": "first:2001"
+      },
+      "report_rank": 1,
+      "repository": {
+        "created_at": "2026-10-06T13:22:02Z",
+        "description": "higher description",
+        "discovery_channels": [
+          "SEARCH"
+        ],
+        "full_name": "acme/higher",
+        "github_repo_id": 2001,
+        "html_url": "https://github.com/acme/higher",
+        "matched_query_ids": [
+          "q1",
+          "q2"
+        ],
+        "name": "higher",
+        "owner": "acme",
+        "primary_language": "Python",
+        "pushed_at": "2026-10-06T13:22:02Z",
+        "stars": 1,
+        "topics": [
+          "agents",
+          "automation"
+        ],
+        "updated_at": "2026-10-06T13:22:02Z"
+      },
+      "selected_for_report": true
+    }
+  ],
+  "reported_count": 1,
+  "run": {
+    "config_version": "1.0.0",
+    "counts": {
+      "reported": 1,
+      "scored": 1
+    },
+    "dry_run": true,
+    "errors": [],
+    "prompt_version": "DEEP_ANALYZER_PROMPT_V1",
+    "result": "SUCCESS",
+    "run_id": "RUN-20261006T132202Z",
+    "score_version": "HIDDEN_GEM_SCORE_V1",
+    "started_at": "2026-10-06T13:22:02Z"
+  },
+  "schema_version": "RUN_CANDIDATES_V1"
+}
