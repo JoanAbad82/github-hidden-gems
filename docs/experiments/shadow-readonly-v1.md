@@ -23,3 +23,5 @@ The Windows task only runs when the machine is available and the authorized user
 Manually run the installed STAR_HERE.ps1 launcher to recheck. Local output is read-only with respect to production, though research reports are newly written. Github CLI authentication on this machine has broader permissions than the calls in the code; a limited GitHub App credential would be preferable for eventual persistent operation.
 
 No merge, deployment, branch protection change, GitHub write, or activation of real agent authorization is approved.
+
+Compatibility cutoff: deterministic RUN_CANDIDATES_V1 ZIP artifact upload is available in the completed discovery runs from 2026-10-07. The read-only runner skips earlier completed runs before fetching artifacts, to avoid misclassifying pre-V1 runs with no artifacts as corrupt. The initial exploratory 15-run backfill is preserved separately as archival evidence; operational reports include eligible V1 runs only.

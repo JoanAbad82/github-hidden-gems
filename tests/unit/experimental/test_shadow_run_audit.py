@@ -18,6 +18,7 @@ RUN = {
     "id": 38052574236, "run_attempt": 1, "name": "daily-discovery",
     "event": "schedule", "status": "completed", "conclusion": "success",
     "head_sha": "a" * 40, "head_branch": "main",
+    "created_at": "2026-10-10T12:36:24Z",
 }
 SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "run_candidates_v1.json"
 
@@ -222,3 +223,8 @@ def test_metadata_artifact_size_guard_before_download(monkeypatch,tmp_path):
         AssertionError("should not download oversized artifacts")))
     with pytest.raises(ValueError,match="zip_size"):
         shadow._read_artifact(RUN,tmp_path)
+
+def test_legacy_pre_v1_runs_are_excluded_before_downloading(monkeypatch):
+    older = {**RUN, "id": 12, "created_at": "2026-10-06T13:20:00Z"}
+    monkeypatch.setattr(shadow, "_json_api", lambda _: {"workflow_runs": [older, RUN]})
+    assert shadow._discovery_runs(10, None) == [RUN]

@@ -27,6 +27,7 @@ from hidden_gems.experimental.replay_integrity import (
 
 REPOSITORY = "JoanAbad82/github-hidden-gems"
 WORKFLOW = "daily_discovery.yml"
+FIRST_V1_ARTIFACT_UTC = "2026-10-07T00:00:00Z"
 RUN_ID_RE = re.compile(r"RUN-\d{8}T\d{6}Z\Z")
 MAX_UNCOMPRESSED_BYTES = 32 * 1024 * 1024
 MAX_ARTIFACT_ZIP_BYTES = 16 * 1024 * 1024
@@ -84,6 +85,9 @@ def _discovery_runs(limit: int, pinned_run: int | None) -> list[dict]:
         if type(run) is not dict or run.get("status") != "completed":
             continue
         if run.get("name") != "daily-discovery":
+            continue
+        # V1 deterministic artifacts were not emitted before this rollout.
+        if type(run.get("created_at")) is not str or run["created_at"] < FIRST_V1_ARTIFACT_UTC:
             continue
         if run.get("event") not in ("schedule", "workflow_dispatch"):
             continue
