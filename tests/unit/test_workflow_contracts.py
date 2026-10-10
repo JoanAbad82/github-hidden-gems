@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -101,7 +102,7 @@ def test_knowledge_harvest_is_manual_read_only():
     text = (WORKFLOWS / "knowledge_harvest.yml").read_text(encoding="utf-8")
     assert "hidden-gems harvest" in text
     assert "DEEPSEEK_API_KEY" in text
-    assert "actions/upload-artifact@v4" in text
+    assert re.search(r"(?m)^\s*uses:\s*actions/upload-artifact@v(?:[4-9]|[1-9]\d+)\s*$", text)
     assert "issues: write" not in text
     assert "contents: write" not in text
 
@@ -179,7 +180,7 @@ def test_production_workflow_has_timeout(discovery_workflow: dict):
 
 def test_production_workflow_uploads_deterministic_run_artifacts():
     text = (WORKFLOWS / "daily_discovery.yml").read_text(encoding="utf-8")
-    assert "actions/upload-artifact@v4" in text
+    assert re.search(r"(?m)^\s*uses:\s*actions/upload-artifact@v(?:[4-9]|[1-9]\d+)\s*$", text)
     assert "path: app/artifacts/" in text
     assert "if-no-files-found: error" in text
     assert "retention-days: 90" in text
