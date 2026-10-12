@@ -326,8 +326,10 @@ def run_pipeline(
                 issue_number=getattr(issue, "number", None),
                 errors=errors,
             )
-        except Exception as exc:  # pragma: no cover - persistence failure is reported
+        except Exception as exc:  # never report success if the history is incomplete
+            from .history.state_branch import StateIntegrityError
             LOGGER.error("finish_run failed: %s", type(exc).__name__)
+            raise StateIntegrityError("could not persist completed run") from exc
         LOGGER.info(
             "run %s finished result=%s discovered=%d reported=%d",
             context.run_id,

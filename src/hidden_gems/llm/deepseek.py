@@ -45,6 +45,12 @@ class DeepSeekProvider:
     ) -> None:
         self._config = config
         self._llm = config.llm
+        if (self._llm.cost_per_1k_input_tokens <= 0
+                or self._llm.cost_per_1k_output_tokens <= 0
+                or self._llm.max_llm_budget_per_run <= 0):
+            raise LLMProviderError(
+                "LLM price ceilings and monetary budget must be positive when enabled"
+            )
         self._api_key = api_key or os.environ.get(self._llm.api_key_env_var) or ""
         self._client = client
         self._owns_client = client is None
@@ -126,6 +132,19 @@ class DeepSeekProvider:
             + output_tokens / 1000.0 * float(self._llm.cost_per_1k_output_tokens)
         )
 
+    def _maximum_request_cost(self, evidence: Mapping[str, Any]) -> float:
+        # Reserve a conservative upper bound *before* a billable call.
+        # One UTF-8 byte per input token bounds byte-level tokenization;
+        # full prompt includes system instructions, schema, and evidence.
+        payload = self._payload(evidence)
+        prompt_bytes = sum(len(message["content"].encode("utf-8"))
+                           for message in payload["messages"])
+        return (
+            prompt_bytes / 1000.0 * self._llm.cost_per_1k_input_tokens
+            + self._llm.max_output_tokens_per_repo / 1000.0
+            * self._llm.cost_per_1k_output_tokens
+        )
+
     def _truncation_error(self, *, completion_tokens: int) -> LLMProviderError:
         return LLMProviderError(
             "provider output was truncated at the configured output token limit "
@@ -174,15 +193,21 @@ class DeepSeekProvider:
             raise LLMProviderError(
                 f"missing API key in environment variable {self._llm.api_key_env_var}"
             )
-        if not self.budget.can_call():
-            raise LLMProviderError("LLM call budget exhausted for this run")
+        if not self.budget.can_call(
+            next_call_max_cost=self._maximum_request_cost(evidence)
+        ):
+            raise LLMProviderError("LLM call or projected monetary budget exhausted")
 
         attempts = int(self._llm.max_retries_per_candidate) + 1
         last_error: Exception | None = None
         validation_feedback: str | None = None
         for attempt in range(attempts):
-            if not self.budget.can_call():
-                last_error = LLMProviderError("LLM call budget exhausted for this run")
+            if not self.budget.can_call(
+                next_call_max_cost=self._maximum_request_cost(evidence)
+            ):
+                last_error = LLMProviderError(
+                    "LLM call or projected monetary budget exhausted"
+                )
                 break
             attempt_label = "PRIMARY" if attempt == 0 else "RETRY"
             try:

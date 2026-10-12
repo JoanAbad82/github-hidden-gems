@@ -373,6 +373,8 @@ def cmd_db_check(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    from .history.state_branch import StateIntegrityError
+
     try:
         config = load_config(resolve_root(args))
         config = apply_run_overrides(config, args)
@@ -424,6 +426,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("RESULT=FAILED_CONFIGURATION")
         print(f"ERROR={exc}")
         return 2
+    except StateIntegrityError as exc:
+        print("RESULT=FAILED_INTEGRITY")
+        print(f"ERROR={type(exc).__name__}")
+        return 3
     finally:
         if github is not None:
             github.close()
@@ -432,8 +438,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not getattr(summary, "dry_run", True):
         try:
             write_run_manifest(resolve_db_path(config, args), summary)
-        except Exception as exc:  # the run result is already persisted in SQLite
-            print(f"WARN=state_manifest_not_written:{type(exc).__name__}", file=sys.stderr)
+        except Exception as exc:
+            print(f"ERROR=state_manifest_not_written:{type(exc).__name__}", file=sys.stderr)
+            print("RESULT=FAILED_INTEGRITY")
+            return 3
 
     print(f"RESULT={summary.result}")
     if summary.result in NON_RETRYABLE_RESULTS:
