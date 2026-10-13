@@ -190,3 +190,172 @@ def test_finish_run_failure_is_not_swallowed(app_config, monkeypatch):
     )
     with pytest.raises(StateIntegrityError, match="could not persist"):
         run_pipeline(app_config, BrokenHistory(), object(), DisabledLLMProvider(), context)
+
+
+def _b1_evidence():
+    return {
+        "repo": "acme-labs/flowkit",
+        "github_repo_id": 501,
+        "repository": {
+            "full_name": "acme-labs/flowkit",
+            "github_repo_id": 501,
+            "html_url": "https://github.com/acme-labs/flowkit",
+        },
+        "observed": {"source_file_count": 3},
+    }
+
+
+def test_b1_retry_reserves_feedback_prompt_cost(app_config):
+    """A retry with a larger prompt must be gated at its actual upper estimate."""
+    import httpx
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "not json"}}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        probe = DeepSeekProvider(app_config, api_key="OFFLINE", client=client)
+        try:
+            first_ceiling = probe._maximum_request_cost(_b1_evidence())
+            retry_ceiling = probe._maximum_request_cost(
+                _b1_evidence(),
+                validation_feedback="schema violation at evidence/observed/0; " + "x" * 220,
+            )
+            assert retry_ceiling > first_ceiling
+        finally:
+            probe.close()
+        budget = LLMBudget(max_calls=5, max_budget=first_ceiling + 0.00005)
+        provider = DeepSeekProvider(
+            app_config, api_key="OFFLINE", client=client, budget=budget,
+        )
+        answer = provider.analyze_repository(_b1_evidence())
+        assert answer.status == "LLM_FAILED"
+        assert len(calls) == 1
+        assert budget.calls_made == 1
+
+
+def test_b1_network_errors_consume_call_cap_and_projected_spend(app_config):
+    """A failed HTTP request may be billable; do not allow unlimited retries."""
+    import httpx
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        raise httpx.ConnectError("offline injected failure", request=request)
+
+    budget = LLMBudget(max_calls=1, max_budget=1.0)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        provider = DeepSeekProvider(
+            app_config, api_key="OFFLINE", client=client, budget=budget,
+        )
+        result = provider.analyze_repository(_b1_evidence())
+        assert result.status == "LLM_FAILED"
+        assert len(calls) == 1
+        assert budget.calls_made == 1
+        assert budget.cost > 0
+        with pytest.raises(LLMProviderError, match="budget"):
+            provider.analyze_repository(_b1_evidence())
+        assert len(calls) == 1
+
+
+def test_b1_valid_response_without_usage_reserves_nonzero_cost(app_config):
+    """Missing usage telemetry cannot be interpreted as zero-dollar billing."""
+    import httpx
+    import json
+    calls = []
+
+    content = {
+        "summary": "A small workflow runtime.",
+        "why_interesting": "Compact and tested.",
+        "relevance_suggestion": 11,
+        "originality_suggestion": 2,
+        "confidence": "MEDIUM",
+        "risks": [],
+        "evidence": {"observed": ["example"], "inferred": [], "unknown": []},
+    }
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(content)}}]},
+        )
+
+    budget = LLMBudget(max_calls=2, max_budget=1.0)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        provider = DeepSeekProvider(
+            app_config, api_key="OFFLINE", client=client, budget=budget,
+        )
+        expected = provider._maximum_request_cost(_b1_evidence())
+        answer = provider.analyze_repository(_b1_evidence())
+        assert answer.status == "OK"
+        assert budget.calls_made == 1
+        assert budget.cost >= expected > 0
+        assert budget.snapshot()["reasons"]["USAGE_UNKNOWN"] == 1
+
+
+def test_b1_http_error_and_nonjson_response_are_not_free(app_config):
+    import httpx
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(200, text="not json")
+
+    budget = LLMBudget(max_calls=2, max_budget=1.0)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        provider = DeepSeekProvider(
+            app_config, api_key="OFFLINE", client=client, budget=budget,
+        )
+        result = provider.analyze_repository(_b1_evidence())
+        assert result.status == "LLM_FAILED"
+        assert len(calls) == 2
+        assert budget.calls_made == 2
+        assert budget.cost > 0
+
+
+
+@pytest.mark.parametrize("usage", [
+    {"prompt_tokens": 0, "completion_tokens": 0},
+    {"prompt_tokens": -1, "completion_tokens": 5},
+    {"prompt_tokens": "invalid", "completion_tokens": 10},
+])
+def test_b1_malformed_or_zero_usage_reserves_projection(app_config, usage):
+    import httpx
+    import json
+    content = {
+        "summary": "Offline example",
+        "why_interesting": "Useful pattern",
+        "relevance_suggestion": 5,
+        "originality_suggestion": 2,
+        "confidence": "MEDIUM",
+        "risks": [],
+        "evidence": {"observed": ["some file"], "inferred": [], "unknown": []},
+    }
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": json.dumps(content)}}],
+                  "usage": usage},
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        budget = LLMBudget(max_calls=1, max_budget=1.0)
+        provider = DeepSeekProvider(
+            app_config, api_key="OFFLINE", client=client, budget=budget,
+        )
+        bound = provider._maximum_request_cost(_b1_evidence())
+        result = provider.analyze_repository(_b1_evidence())
+        assert result.status == "OK"
+        assert budget.calls_made == 1
+        assert budget.cost >= bound > 0
+        assert budget.snapshot()["reasons"]["USAGE_UNKNOWN"] == 1

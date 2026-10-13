@@ -132,13 +132,17 @@ class DeepSeekProvider:
             + output_tokens / 1000.0 * float(self._llm.cost_per_1k_output_tokens)
         )
 
-    def _maximum_request_cost(self, evidence: Mapping[str, Any]) -> float:
-        # Reserve a conservative upper bound *before* a billable call.
-        # One UTF-8 byte per input token bounds byte-level tokenization;
-        # full prompt includes system instructions, schema, and evidence.
-        payload = self._payload(evidence)
-        prompt_bytes = sum(len(message["content"].encode("utf-8"))
-                           for message in payload["messages"])
+    def _maximum_request_cost(
+        self, evidence: Mapping[str, Any], *,
+        validation_feedback: str | None = None,
+    ) -> float:
+        # Reserve against the EXACT prompt variant sent on this attempt:
+        # retries include additional validation feedback or truncation hints.
+        payload = self._payload(evidence, validation_feedback=validation_feedback)
+        prompt_bytes = sum(
+            len(message["content"].encode("utf-8"))
+            for message in payload["messages"]
+        )
         return (
             prompt_bytes / 1000.0 * self._llm.cost_per_1k_input_tokens
             + self._llm.max_output_tokens_per_repo / 1000.0
@@ -202,9 +206,10 @@ class DeepSeekProvider:
         last_error: Exception | None = None
         validation_feedback: str | None = None
         for attempt in range(attempts):
-            if not self.budget.can_call(
-                next_call_max_cost=self._maximum_request_cost(evidence)
-            ):
+            projected_cost = self._maximum_request_cost(
+                evidence, validation_feedback=validation_feedback
+            )
+            if not self.budget.can_call(next_call_max_cost=projected_cost):
                 last_error = LLMProviderError(
                     "LLM call or projected monetary budget exhausted"
                 )
@@ -222,7 +227,13 @@ class DeepSeekProvider:
                         validation_feedback=validation_feedback,
                     ),
                 )
-            except httpx.HTTPError as exc:  # network-level failure
+            except httpx.HTTPError as exc:  # billing status is unknown
+                # Charge the upper estimate AND count every attempted request,
+                # even a timeout / disconnect. Otherwise retries can bypass
+                # both the call cap and the estimated USD cap.
+                self.budget.record_call(
+                    reason="NETWORK_ERROR", cost=projected_cost
+                )
                 self.budget.record_attempt(
                     repo_id=repo.github_repo_id,
                     attempt=attempt_label,
@@ -236,7 +247,7 @@ class DeepSeekProvider:
 
             usage: Mapping[str, Any] = {}
             if response.status_code >= 400:
-                self.budget.record_call(reason="ERROR")
+                self.budget.record_call(reason="ERROR", cost=projected_cost)
                 self.budget.record_attempt(
                     repo_id=repo.github_repo_id,
                     attempt=attempt_label,
@@ -250,7 +261,7 @@ class DeepSeekProvider:
             try:
                 body = response.json()
             except ValueError:
-                self.budget.record_call(reason="INVALID")
+                self.budget.record_call(reason="INVALID", cost=projected_cost)
                 self.budget.record_attempt(
                     repo_id=repo.github_repo_id,
                     attempt=attempt_label,
@@ -262,14 +273,28 @@ class DeepSeekProvider:
                 validation_feedback = None
                 continue
 
-            usage = body.get("usage") or {}
-            prompt_tokens = int(usage.get("prompt_tokens") or 0)
-            completion_tokens = int(usage.get("completion_tokens") or 0)
+            usage = body.get("usage") if isinstance(body, Mapping) else None
+            # A successful response can omit token telemetry. Unknown usage
+            # is NOT evidence of free service: charge the projected ceiling.
+            # Also treat negative or malformed token values as unknown.
+            try:
+                if not isinstance(usage, Mapping):
+                    raise ValueError("usage is absent or not an object")
+                prompt_tokens = int(usage["prompt_tokens"])
+                completion_tokens = int(usage["completion_tokens"])
+                if prompt_tokens < 0 or completion_tokens < 0 or (prompt_tokens + completion_tokens) == 0:
+                    raise ValueError("usage tokens must be nonnegative")
+            except (KeyError, TypeError, ValueError, OverflowError):
+                prompt_tokens = 0
+                completion_tokens = 0
+                usage_reliable = False
+            else:
+                usage_reliable = True
             self.budget.record_call(
-                reason=attempt_label,
+                reason=attempt_label if usage_reliable else "USAGE_UNKNOWN",
                 input_tokens=prompt_tokens,
                 output_tokens=completion_tokens,
-                cost=self._cost(usage),
+                cost=self._cost(usage) if usage_reliable else projected_cost,
             )
 
             finish_reason: str | None = None

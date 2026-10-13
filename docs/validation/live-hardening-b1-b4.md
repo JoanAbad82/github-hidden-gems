@@ -8,6 +8,7 @@ Previously `cost_per_1k_input_tokens=0` and `cost_per_1k_output_tokens=0`, causi
 
 - Actual charge is *not* returned as dollars in the currently consumed API response, so recorded cost remains an **estimate/upper bound**, not an invoice.
 - A billable response with token usage is accounted at these positive ceiling rates, regardless of cache discounts.
+- B1 retry prompts reserve against the **actual request variant**, including validation feedback. Transport failures and malformed/absent usage are counted conservatively: every attempted HTTP request consumes one call and its projected cost until reliably measured. A zero-token usage report is not treated as free service.
 - Before each call the provider reserves a conservative one-call upper estimate based on UTF-8 prompt bytes, plus max generated tokens. The run call limit (30) also remains.
 - Prices may change; before any real run, verify the configured `deepseek-chat` model alias/rate from the provider account and billing. Set an external account spend limit. A changed rate or unverified alias means **NO-GO**. Do not equate an estimated cap with a provider-side spending limit.
 
