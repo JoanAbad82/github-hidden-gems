@@ -44,7 +44,6 @@ jobs:
         with:
           ref: state
           path: state
-        continue-on-error: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -56,6 +55,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
+
+      - name: Validate checked-out state (fail closed)
+        working-directory: app
+        run: python -m hidden_gems.history.live_state_guard verify --state-dir ../state
 
       - name: Resolve run mode
         id: mode
@@ -166,6 +169,12 @@ jobs:
         working-directory: app
         run: hidden-gems db-check --root . --db state/history.sqlite3
 
+      - name: Stage verified live snapshot and restorable backup
+        if: ${{ steps.mode.outputs.dry_run == 'false' }}
+        working-directory: app
+        run: |
+          python -m hidden_gems.history.live_state_guard stage-live --state-dir ../state --app-db state/history.sqlite3
+
       - name: Persist state branch
         if: ${{ steps.mode.outputs.dry_run == 'false' }}
         working-directory: state
@@ -173,14 +182,14 @@ jobs:
           set -euo pipefail
           git config user.name "hidden-gems-bot"
           git config user.email "hidden-gems-bot@users.noreply.github.com"
-          cp ../app/state/history.sqlite3 history.sqlite3
-          if [ -f ../app/state/state_manifest.json ]; then
-            cp ../app/state/state_manifest.json state_manifest.json
-          fi
+          python -m hidden_gems.history.live_state_guard verify --state-dir .
           git add history.sqlite3 state_manifest.json backups
           if git diff --cached --quiet; then
             echo "no state change"
           else
             git commit -m "state: run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             git push origin HEAD:state
+            pushed_sha="$(git rev-parse HEAD)"
+            remote_sha="$(git ls-remote --heads origin state | cut -f1)"
+            test "$pushed_sha" = "$remote_sha" || { echo "state remote SHA mismatch" >&2; exit 3; }
           fi

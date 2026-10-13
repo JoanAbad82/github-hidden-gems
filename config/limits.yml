@@ -49,8 +49,12 @@ llm:
   max_output_tokens_per_repo: 2200
   max_llm_budget_per_run: 0.5
   max_retries_per_candidate: 1
-  cost_per_1k_input_tokens: 0.0
-  cost_per_1k_output_tokens: 0.0
+  # Conservative highest published PEAK prices for DeepSeek V4 Pro
+  # as checked on 2026-10-12; pricing varies by model and time.
+  # USD/1000 tokens; input assumes entirely cache MISS.
+  # Recheck official API billing and model alias before authorizing live cycles.
+  cost_per_1k_input_tokens: 0.00132
+  cost_per_1k_output_tokens: 0.00396
 
 reporting:
   normal_max: 5

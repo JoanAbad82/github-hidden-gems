@@ -31,11 +31,14 @@ class LLMBudget:
     _reasons: dict[str, int] = field(default_factory=dict)
     _attempts: list[dict[str, Any]] = field(default_factory=list)
 
-    def can_call(self) -> bool:
+    def can_call(self, *, next_call_max_cost: float = 0.0) -> bool:
         if self.calls_made >= self.max_calls:
             return False
-        if self.max_budget and self.cost >= self.max_budget:
-            return False
+        if self.max_budget:
+            if self.cost >= self.max_budget:
+                return False
+            if self.cost + max(0.0, next_call_max_cost) > self.max_budget:
+                return False
         return True
 
     def record_call(self, *, reason: str = "PRIMARY", input_tokens: int = 0, output_tokens: int = 0,
