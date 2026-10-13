@@ -19,17 +19,27 @@ from hidden_gems.llm.deepseek import DeepSeekProvider
 
 
 def fake_snapshot(root: Path, run_id: str, when: str = "2026-09-16T11:40:14Z", *,
-                  dry_run: int = 0):
+                  dry_run: int = 0, previous_db: Path | None = None):
+    import shutil
     root.mkdir(parents=True, exist_ok=True)
     db_path = root / "history.sqlite3"
+    if previous_db is not None:
+        shutil.copyfile(previous_db, db_path)
     connection = sqlite3.connect(db_path)
     try:
+        if previous_db is None:
+            connection.execute(
+                "CREATE TABLE runs (run_id TEXT PRIMARY KEY, started_at TEXT, "
+                "result TEXT, dry_run INTEGER, report_state TEXT, "
+                "issue_number INTEGER, issue_url TEXT)"
+            )
+            connection.execute(
+                "CREATE TABLE notifications (notification_id INTEGER PRIMARY KEY, "
+                "github_repo_id INTEGER, run_id TEXT, fingerprint TEXT, score INTEGER)"
+            )
         connection.execute(
-            "CREATE TABLE runs (run_id TEXT, started_at TEXT, result TEXT, dry_run INTEGER)"
-        )
-        connection.execute(
-            "INSERT INTO runs VALUES (?, ?, ?, ?)",
-            (run_id, when, "SUCCESS", dry_run),
+            "INSERT INTO runs (run_id,started_at,result,dry_run,report_state) VALUES (?,?,?,?,?)",
+            (run_id, when, "SUCCESS", dry_run, "NONE"),
         )
         connection.commit()
     finally:
@@ -62,7 +72,7 @@ def test_live_staging_creates_verifiable_restorable_backup(tmp_path):
     old = fake_snapshot(base, "RUN-20260916T114014Z")
     old_hash = hashlib.sha256(old.read_bytes()).hexdigest()
     app_db = fake_snapshot(tmp_path / "app", "RUN-20261013T061700Z",
-                           when="2026-10-13T06:17:00Z")
+                           when="2026-10-13T06:17:00Z", previous_db=old)
     result = stage_live(app_db, base)
     assert result["run_id"] == "RUN-20261013T061700Z"
     assert result["backup_count"] == 1
@@ -81,7 +91,7 @@ def test_live_staging_creates_verifiable_restorable_backup(tmp_path):
 def test_tampered_backup_cannot_pass_verification(tmp_path):
     old = fake_snapshot(tmp_path / "state", "RUN-20260916T114014Z")
     newer = fake_snapshot(tmp_path / "new", "RUN-20261013T061700Z",
-                          when="2026-10-13T06:17:00Z")
+                          when="2026-10-13T06:17:00Z", previous_db=old)
     stage_live(newer, old.parent)
     archive = next((old.parent / "backups").glob("*.sqlite3.gz"))
     archive.write_bytes(b"not gzip")
@@ -91,7 +101,8 @@ def test_tampered_backup_cannot_pass_verification(tmp_path):
 
 def test_stage_live_rejects_dry_run(tmp_path):
     old = fake_snapshot(tmp_path / "state", "RUN-20260916T114014Z")
-    new = fake_snapshot(tmp_path / "app", "RUN-20261013T061700Z", dry_run=1)
+    new = fake_snapshot(tmp_path / "app", "RUN-20261013T061700Z", dry_run=1,
+                        previous_db=old)
     with pytest.raises(LiveStateError, match="live"):
         stage_live(new, old.parent)
 
@@ -359,3 +370,110 @@ def test_b1_malformed_or_zero_usage_reserves_projection(app_config, usage):
         assert budget.calls_made == 1
         assert budget.cost >= bound > 0
         assert budget.snapshot()["reasons"]["USAGE_UNKNOWN"] == 1
+
+
+def _continuity_fixture(tmp_path):
+    old = fake_snapshot(tmp_path / "state", "RUN-20260916T114014Z")
+    with sqlite3.connect(old) as db:
+        db.execute(
+            "INSERT INTO notifications (notification_id,github_repo_id,run_id,fingerprint,score) "
+            "VALUES (1,42,'RUN-20260916T114014Z','FIRST_DISCOVERY:42',73)"
+        )
+    write_state_manifest(old, run_id="RUN-20260916T114014Z", run_result="SUCCESS")
+    new = fake_snapshot(
+        tmp_path / "app", "RUN-20261014T061700Z",
+        when="2026-10-14T06:17:00Z", previous_db=old,
+    )
+    return old, new
+
+
+def _assert_stage_rejected_without_state_damage(old, new, phrase):
+    before_hash = hashlib.sha256(old.read_bytes()).hexdigest()
+    before_manifest = (old.parent / "state_manifest.json").read_bytes()
+    with pytest.raises(LiveStateError, match=phrase):
+        stage_live(new, old.parent)
+    assert hashlib.sha256(old.read_bytes()).hexdigest() == before_hash
+    assert (old.parent / "state_manifest.json").read_bytes() == before_manifest
+    assert not list((old.parent / "backups").glob("*.gz")) if (old.parent / "backups").exists() else True
+
+
+def test_b4_rejects_missing_prior_runs_even_with_valid_new_manifest(tmp_path):
+    old, new = _continuity_fixture(tmp_path)
+    with sqlite3.connect(new) as db:
+        db.execute("DELETE FROM runs WHERE run_id='RUN-20260916T114014Z'")
+    write_state_manifest(new, run_id="RUN-20261014T061700Z", run_result="SUCCESS")
+    assert verify_state(new.parent, require_live=True)
+    _assert_stage_rejected_without_state_damage(old, new, "lost 1 runs")
+
+
+def test_b4_rejects_missing_prior_notifications(tmp_path):
+    old, new = _continuity_fixture(tmp_path)
+    with sqlite3.connect(new) as db:
+        db.execute("DELETE FROM notifications WHERE notification_id=1")
+    write_state_manifest(new, run_id="RUN-20261014T061700Z", run_result="SUCCESS")
+    _assert_stage_rejected_without_state_damage(old, new, "lost 0 runs and 1 notifications")
+
+
+def test_b4_rejects_rewritten_prior_runs(tmp_path):
+    old, new = _continuity_fixture(tmp_path)
+    with sqlite3.connect(new) as db:
+        db.execute("UPDATE runs SET result='FAILED' WHERE run_id='RUN-20260916T114014Z'")
+    write_state_manifest(new, run_id="RUN-20261014T061700Z", run_result="SUCCESS")
+    _assert_stage_rejected_without_state_damage(old, new, "previous run modified")
+
+
+def test_b4_rejects_modified_prior_notification(tmp_path):
+    old, new = _continuity_fixture(tmp_path)
+    with sqlite3.connect(new) as db:
+        db.execute("UPDATE notifications SET score=1 WHERE notification_id=1")
+    write_state_manifest(new, run_id="RUN-20261014T061700Z", run_result="SUCCESS")
+    _assert_stage_rejected_without_state_damage(old, new, "prior notification modified")
+
+
+def test_b4_rejects_extra_unexpected_run(tmp_path):
+    old, new = _continuity_fixture(tmp_path)
+    with sqlite3.connect(new) as db:
+        db.execute(
+            "INSERT INTO runs (run_id,started_at,result,dry_run) VALUES "
+            "('RUN-20261014T061701Z','2026-10-14T06:17:01Z','SUCCESS',0)"
+        )
+    write_state_manifest(new, run_id="RUN-20261014T061701Z", run_result="SUCCESS")
+    _assert_stage_rejected_without_state_damage(old, new, "expected exactly one new run")
+
+
+def test_b4_allows_append_only_runs_and_new_notifications(tmp_path):
+    old, new = _continuity_fixture(tmp_path)
+    with sqlite3.connect(new) as db:
+        db.execute(
+            "INSERT INTO notifications (notification_id,github_repo_id,run_id,fingerprint,score) "
+            "VALUES (2,43,'RUN-20261014T061700Z','FIRST_DISCOVERY:43',76)"
+        )
+    write_state_manifest(new, run_id="RUN-20261014T061700Z", run_result="SUCCESS")
+    outcome = stage_live(new, old.parent)
+    assert outcome["run_id"] == "RUN-20261014T061700Z"
+    with sqlite3.connect(old) as db:
+        assert db.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 2
+        assert db.execute("SELECT COUNT(*) FROM notifications").fetchone()[0] == 2
+
+
+def test_b4_allows_pending_report_becoming_published(tmp_path):
+    old, new = _continuity_fixture(tmp_path)
+    with sqlite3.connect(old) as db:
+        db.execute(
+            "UPDATE runs SET report_state='PENDING_REPORT' "
+            "WHERE run_id='RUN-20260916T114014Z'"
+        )
+    write_state_manifest(old, run_id="RUN-20260916T114014Z", run_result="SUCCESS")
+    with sqlite3.connect(new) as db:
+        db.execute(
+            "UPDATE runs SET report_state='PENDING_REPORT' "
+            "WHERE run_id='RUN-20260916T114014Z'"
+        )
+        db.execute(
+            "UPDATE runs SET report_state='REPORT_PUBLISHED', issue_number=36, "
+            "issue_url='https://github.com/example/repo/issues/36' "
+            "WHERE run_id='RUN-20260916T114014Z'"
+        )
+    write_state_manifest(new, run_id="RUN-20261014T061700Z", run_result="SUCCESS")
+    outcome = stage_live(new, old.parent)
+    assert outcome["run_id"] == "RUN-20261014T061700Z"

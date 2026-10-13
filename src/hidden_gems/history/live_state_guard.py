@@ -46,6 +46,78 @@ def _database_last_run(db_path: Path) -> tuple[str, str, bool]:
         db.close()
 
 
+def _history_rows(db_path: Path, table: str, key: str) -> tuple[tuple[str, ...], dict]:
+    """Read all historical rows without modifying either SQLite database."""
+    if table not in {"runs", "notifications"}:
+        raise LiveStateError("unsupported historical table")
+    if key not in {"run_id", "notification_id"}:
+        raise LiveStateError("unsupported historical key")
+    db = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro&immutable=1", uri=True)
+    db.row_factory = sqlite3.Row
+    try:
+        cols = tuple(row[1] for row in db.execute(f"PRAGMA table_info({table})"))
+        if key not in cols:
+            raise LiveStateError(f"history table {table} or key {key} is missing")
+        result = {}
+        for row in db.execute(f"SELECT * FROM {table}"):
+            item = dict(row)
+            identity = item[key]
+            if identity is None or identity in result:
+                raise LiveStateError(f"invalid {table} identity")
+            result[identity] = item
+        return cols, result
+    finally:
+        db.close()
+
+
+def _verify_history_continuity(previous_db: Path, proposed_db: Path, *, new_run_id: str) -> None:
+    """Require append-only runs/notifications, apart from explicit report publication.
+
+    A valid SQLite hash only authenticates its current bytes: without this check
+    a perfectly consistent new DB may silently discard earlier history.
+    """
+    old_run_cols, old_runs = _history_rows(previous_db, "runs", "run_id")
+    new_run_cols, new_runs = _history_rows(proposed_db, "runs", "run_id")
+    old_note_cols, old_notes = _history_rows(previous_db, "notifications", "notification_id")
+    new_note_cols, new_notes = _history_rows(proposed_db, "notifications", "notification_id")
+    if not set(old_run_cols).issubset(new_run_cols):
+        raise LiveStateError("runs schema lost historical columns")
+    if not set(old_note_cols).issubset(new_note_cols):
+        raise LiveStateError("notifications schema lost historical columns")
+    missing_runs = set(old_runs) - set(new_runs)
+    missing_notes = set(old_notes) - set(new_notes)
+    if missing_runs or missing_notes:
+        raise LiveStateError(
+            f"history continuity violation: lost {len(missing_runs)} runs "
+            f"and {len(missing_notes)} notifications"
+        )
+    new_ids = set(new_runs) - set(old_runs)
+    if new_ids != {new_run_id}:
+        raise LiveStateError("history continuity violation: expected exactly one new run")
+    for run_id, old in old_runs.items():
+        new = new_runs[run_id]
+        # Historical publication can legitimately complete a PENDING_REPORT
+        # after reconciliation. Do not allow a different result/usage/budgets.
+        published = (
+            old.get("report_state") == "PENDING_REPORT"
+            and new.get("report_state") == "REPORT_PUBLISHED"
+            and new.get("issue_number") is not None
+            and bool(new.get("issue_url"))
+        )
+        allowed = {"report_state", "issue_number", "issue_url"} if published else set()
+        if any(old[column] != new[column] for column in old_run_cols if column not in allowed):
+            raise LiveStateError(f"history continuity violation: previous run modified: {run_id}")
+    for note_id, old in old_notes.items():
+        new = new_notes[note_id]
+        if any(old[col] != new[col] for col in old_note_cols):
+            raise LiveStateError(f"history continuity violation: prior notification modified: {note_id}")
+    # New notifications may only refer to an existing run in the resulting DB.
+    for note_id in set(new_notes) - set(old_notes):
+        run_id = new_notes[note_id].get("run_id")
+        if run_id not in new_runs:
+            raise LiveStateError(f"new notification refers to missing run: {note_id}")
+
+
 def restore_backup(archive: Path, destination: Path) -> str:
     """Restore into a NEW location and verify the digest embedded in the name."""
     match = _BACKUP_PATTERN.fullmatch(archive.name)
@@ -110,6 +182,10 @@ def stage_live(app_db: Path, state_dir: Path, *, max_backups: int = 3) -> dict:
     current = verify_state(app_manifest_dir, require_live=True)
     if original["run_id"] == current["run_id"]:
         raise LiveStateError("refusing to persist the same run twice")
+    # Fail BEFORE modifying any checked-out state file or rotating backups.
+    _verify_history_continuity(
+        state_dir / "history.sqlite3", app_db, new_run_id=current["run_id"]
+    )
     backup_dir = state_dir / "backups"
     backup_dir.mkdir(exist_ok=True)
     old_db = state_dir / "history.sqlite3"

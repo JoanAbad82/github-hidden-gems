@@ -26,6 +26,7 @@ Previously `cost_per_1k_input_tokens=0` and `cost_per_1k_output_tokens=0`, causi
 - Checkout of the `state` branch no longer has `continue-on-error`.
 - Preflight checks SQLite against manifest hash, bytes, run id and result, plus any referenced backups.
 - A live run must have completed SQLite history and a corresponding manifest before staging or pushing.
+- B4 also compares the previous and proposed SQLite histories **before changing state**: it rejects deleted/modified historical runs or notifications, unexpected additional runs and notifications without a valid run reference. The only permitted historical row update is a confirmed `PENDING_REPORT` → `REPORT_PUBLISHED` transition with issue details.
 - Git push is checked against the remote `state` SHA; concurrent writers are serialized with the existing Actions concurrency group.
 
 ## Evidence and limit of the test
