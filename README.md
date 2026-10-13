@@ -108,6 +108,8 @@ See [docs/knowledge-harvest.md](docs/knowledge-harvest.md).
 - `.github/instructions/` provides path-specific Copilot instructions.
 - `.github/agents/` contains reusable specialist custom agents for falsification and evidence-boundary review.
 
+**Reproducible evidence example:** [PR #33](https://github.com/JoanAbad82/github-hidden-gems/pull/33) provides a valid and an intentionally invalid `RUN_CANDIDATES_V1` fixture with focused schema tests. The merged PR and repository test files are evidence of a bounded implementation, not proof that every discovered repository or external agent has been validated. For current tasks see `AGENT_TASKS.json` and the linked Research Intake; always recheck the live issue state.
+
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
