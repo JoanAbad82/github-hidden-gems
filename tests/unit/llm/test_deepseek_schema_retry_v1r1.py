@@ -85,6 +85,11 @@ def test_primary_request_contains_canonical_json_schema(app_config, monkeypatch)
 
     assert result.status == "OK"
     assert len(calls) == 1
+    primary_payload = json.loads(calls[0].content.decode("utf-8"))
+    assert primary_payload["model"] == "deepseek-flash"
+    assert primary_payload["thinking"] == {"type": "disabled"}
+    assert primary_payload["temperature"] == 0
+    assert primary_payload["response_format"] == {"type": "json_object"}
     messages = _messages_text(calls[0])
     assert "LLM_ANALYSIS_V1_CANONICAL_SCHEMA" in messages
     assert '"additionalProperties": false' in messages
@@ -113,6 +118,12 @@ def test_retry_after_unexpected_claim_property_receives_validation_feedback(app_
 
     assert result.status == "OK"
     assert len(calls) == 2
+    for call in calls:
+        retry_payload = json.loads(call.content.decode("utf-8"))
+        assert retry_payload["model"] == "deepseek-flash"
+        assert retry_payload["thinking"] == {"type": "disabled"}
+        assert retry_payload["temperature"] == 0
+        assert retry_payload["response_format"] == {"type": "json_object"}
     retry_messages = _messages_text(calls[1])
     assert "schema violation at claims_supported/0" in retry_messages
     assert "reason" in retry_messages
@@ -134,6 +145,12 @@ def test_retry_after_oversized_risk_receives_validation_feedback(app_config, mon
 
     assert result.status == "OK"
     assert len(calls) == 2
+    for call in calls:
+        retry_payload = json.loads(call.content.decode("utf-8"))
+        assert retry_payload["model"] == "deepseek-flash"
+        assert retry_payload["thinking"] == {"type": "disabled"}
+        assert retry_payload["temperature"] == 0
+        assert retry_payload["response_format"] == {"type": "json_object"}
     retry_messages = _messages_text(calls[1])
     assert "schema violation at risks/0" in retry_messages
     assert "Generate a new JSON object from scratch" in retry_messages
