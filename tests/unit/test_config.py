@@ -123,3 +123,48 @@ def test_configuration_validation_makes_no_network_calls(monkeypatch, app_config
 
     monkeypatch.setattr(socket, "socket", _boom)
     validate_config(app_config)
+
+
+def test_configured_deepseek_model_is_current(app_config: AppConfig):
+    assert app_config.llm.model == "deepseek-flash"
+    assert app_config.llm.provider == "deepseek"
+    # Preserve the conservative V4 Pro peak upper estimate until actual
+    # provider billing and externally enforceable spending control are verified.
+    assert app_config.llm.cost_per_1k_input_tokens >= 0.00132
+    assert app_config.llm.cost_per_1k_output_tokens >= 0.00396
+
+
+@pytest.mark.parametrize("legacy", ["deepseek-chat", "deepseek-reasoner", "invented-model"])
+def test_config_rejects_retired_or_unknown_deepseek_model(
+    tmp_path: Path, canonical_config_tree, legacy: str
+):
+    tree = canonical_config_tree(tmp_path)
+    config = tree / "config" / "limits.yml"
+    source = config.read_text(encoding="utf-8")
+    assert source.count("  model: deepseek-flash") == 1
+    config.write_text(
+        source.replace("  model: deepseek-flash", f"  model: {legacy}"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError, match="llm.model"):
+        load_config(tree)
+
+
+def test_deepseek_api_payload_uses_active_model_without_network(app_config: AppConfig):
+    from hidden_gems.llm.deepseek import DeepSeekProvider
+    import httpx
+
+    def disallow_request(request):
+        raise AssertionError("model compatibility check must never call DeepSeek")
+
+    with httpx.Client(transport=httpx.MockTransport(disallow_request)) as http:
+        provider = DeepSeekProvider(
+            app_config, api_key="OFFLINE_DUMMY_DO_NOT_SEND", client=http,
+        )
+        payload = provider._payload({
+            "github_repo_id": 101,
+            "full_name": "review/model-compat",
+        })
+        assert payload["model"] == "deepseek-flash"
+        assert payload["response_format"] == {"type": "json_object"}
+        assert payload["stream"] is False
