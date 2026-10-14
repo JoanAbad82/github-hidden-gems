@@ -23,10 +23,17 @@ def test_controlled_live_evidence_keeps_publication_pending(repo_root: Path):
     assert "ISSUES_CREATED=1" not in text
 
 
-def test_gradings_template_is_empty_and_explains_the_scale(repo_root: Path):
+def test_gradings_ratified_historical_cohort_and_provenance(repo_root: Path):
     text = (repo_root / "docs" / "validation" / "gradings.yml").read_text(encoding="utf-8")
     from hidden_gems.validation.acceptance import load_gradings
 
-    assert load_gradings(repo_root / "docs" / "validation" / "gradings.yml") == {}
+    ratings = load_gradings(repo_root / "docs" / "validation" / "gradings.yml")
+    assert len(ratings) == 6
+    assert sorted(item.grade for item in ratings.values()) == [
+        "BAD", "BAD", "GOOD", "GOOD", "MAYBE", "MAYBE"
+    ]
+    assert sum(item.grade in {"GOOD", "MAYBE"} for item in ratings.values()) == 4
+    assert "RATIFIED" in text
+    assert "NOT proof" in text
     for grade in ("GOOD", "MAYBE", "BAD"):
         assert grade in text

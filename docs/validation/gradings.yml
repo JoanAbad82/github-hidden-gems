@@ -22,4 +22,34 @@
 #     score: 74
 #     note: "Useful CLI, but the scheduling part is thin."
 
-gradings: []
+# Historical human gradings RATIFIED by the project owner on 2026-10-12.
+# Source: HIDDEN_GEMS_ACTA_RATIFICADA_RESUMEN_2026-10-12.md (local evidence).
+# These are the six historical notifications from Sep 15-16, NOT proof of
+# V1 acceptance; the seven consecutive LIVE daily cycles remain required.
+# Do not edit grades to make the acceptance fraction cross 70%.
+
+gradings:
+  - github_repo_id: 1355559081
+    grade: GOOD
+    score: 79
+    note: "Control determinista de acciones de agentes; tests de aprobación. Uso como patrón, no garantía de seguridad."
+  - github_repo_id: 1353380091
+    grade: BAD
+    score: 78
+    note: "Demo educativa de paper trading, sin suite automatizada ni CI."
+  - github_repo_id: 1353488448
+    grade: MAYBE
+    score: 77
+    note: "Motor Rust con pruebas; utilidad incremental no demostrada."
+  - github_repo_id: 1353725004
+    grade: MAYBE
+    score: 77
+    note: "Arquitectura de backtesting; utilidad y desempeño sin contraste independiente."
+  - github_repo_id: 1354832590
+    grade: BAD
+    score: 77
+    note: "Prototipo LLM con scripts de conexión y sin CI."
+  - github_repo_id: 1340901539
+    grade: GOOD
+    score: 73
+    note: "Memoria local y control de frescura interproyectos como patrón útil; precisión no medida."
