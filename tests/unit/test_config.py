@@ -166,5 +166,6 @@ def test_deepseek_api_payload_uses_active_model_without_network(app_config: AppC
             "full_name": "review/model-compat",
         })
         assert payload["model"] == "deepseek-flash"
+        assert payload["thinking"] == {"type": "disabled"}
         assert payload["response_format"] == {"type": "json_object"}
         assert payload["stream"] is False

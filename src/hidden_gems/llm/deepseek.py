@@ -118,6 +118,10 @@ class DeepSeekProvider:
         return {
             "model": self._llm.model,
             "messages": messages,
+            # DeepSeek Flash defaults to thinking. Preserve the canonical
+            # bounded JSON enrichment path explicitly in non-thinking mode,
+            # on both the primary request and every validation retry.
+            "thinking": {"type": "disabled"},
             "temperature": 0,
             "max_tokens": self._llm.max_output_tokens_per_repo,
             "response_format": {"type": "json_object"},
