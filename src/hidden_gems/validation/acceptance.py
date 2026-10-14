@@ -136,23 +136,88 @@ class AcceptanceReport:
 # -- helpers --------------------------------------------------------------
 
 
-def _trailing_consecutive(cycles: Sequence[CycleEvidence]) -> list[CycleEvidence]:
-    """The most recent unbroken run of consecutive daily cycles."""
+def _daily_evidence_groups(
+    cycles: Sequence[CycleEvidence],
+) -> list[tuple[date, tuple[CycleEvidence, ...]]]:
+    """Group UTC daily evidence, preferring live runs without discarding any.
 
-    ordered = sorted(cycles, key=lambda cycle: cycle.run_date)
-    if not ordered:
-        return []
-    tail = [ordered[-1]]
-    for item in reversed(ordered[:-1]):
-        if (tail[-1].run_date - item.run_date).days == 1:
-            tail.append(item)
+    A dry run is not a live publication. When a live run exists for the day,
+    the dry-run evidence must never shadow its actual notifications. Multiple
+    live runs remain visible and cause an explicit FAIL (not cherry-picking).
+    Dry-only days keep one deterministic representative and remain non-live.
+    """
+    by_day: dict[date, list[CycleEvidence]] = {}
+    for cycle in cycles:
+        by_day.setdefault(cycle.run_date, []).append(cycle)
+    result: list[tuple[date, tuple[CycleEvidence, ...]]] = []
+    for day in sorted(by_day):
+        day_rows = by_day[day]
+        live_rows = sorted(
+            (row for row in day_rows if not row.dry_run),
+            key=lambda row: row.run_id,
+        )
+        if live_rows:
+            result.append((day, tuple(live_rows)))
         else:
+            # A dry-only date cannot satisfy the production gate; select a
+            # stable representative without inventing or duplicating a day.
+            dry = max(day_rows, key=lambda row: row.run_id)
+            result.append((day, (dry,)))
+    return result
+
+
+def _consecutive_daily_groups(
+    cycles: Sequence[CycleEvidence],
+) -> list[tuple[date, tuple[CycleEvidence, ...]]]:
+    groups = _daily_evidence_groups(cycles)
+    if not groups:
+        return []
+    tail = [groups[-1]]
+    for group in reversed(groups[:-1]):
+        if (tail[-1][0] - group[0]).days != 1:
             break
+        tail.append(group)
     return list(reversed(tail))
 
 
+def _trailing_consecutive(cycles: Sequence[CycleEvidence]) -> list[CycleEvidence]:
+    """Flatten the most recent uninterrupted series of unique UTC days."""
+    return [run for _, rows in _consecutive_daily_groups(cycles) for run in rows]
+
+
 def _window(cycles: Sequence[CycleEvidence], criteria: AcceptanceCriteria) -> list[CycleEvidence]:
-    return _trailing_consecutive(cycles)[-int(criteria.required_cycles) :]
+    # Limit by DATE count, not row count: multiple live runs from one day
+    # cannot push other days' evidence out of the acceptance denominator.
+    groups = _consecutive_daily_groups(cycles)[-int(criteria.required_cycles) :]
+    return [run for _, rows in groups for run in rows]
+
+
+def _duplicate_live_day_criterion(window: Sequence[CycleEvidence]) -> CriterionResult:
+    """Fail closed on non-unique live executions within the evaluated window."""
+    by_day: dict[date, list[str]] = {}
+    for cycle in window:
+        if not cycle.dry_run:
+            by_day.setdefault(cycle.run_date, []).append(cycle.run_id)
+    collisions = [
+        (day, sorted(run_ids))
+        for day, run_ids in sorted(by_day.items())
+        if len(run_ids) > 1
+    ]
+    if not window:
+        return CriterionResult(
+            "unique_live_cycle_per_day", PENDING, "no evaluated days yet"
+        )
+    if collisions:
+        days = "; ".join(
+            f"{day.isoformat()}: {', '.join(ids)}" for day, ids in collisions
+        )
+        return CriterionResult(
+            "unique_live_cycle_per_day", FAIL,
+            f"multiple live runs on the same UTC day: {days}",
+        )
+    return CriterionResult(
+        "unique_live_cycle_per_day", PASS, "at most one live run per UTC day"
+    )
 
 
 def _sum(cycles: Sequence[CycleEvidence], attribute: str) -> int:
@@ -170,7 +235,7 @@ def _useful_discovery_rate(window: Sequence[CycleEvidence]) -> tuple[float | Non
 def _criteria_cycle_count(
     cycles: Sequence[CycleEvidence], criteria: AcceptanceCriteria
 ) -> CriterionResult:
-    consecutive = len(_trailing_consecutive(cycles))
+    consecutive = len(_consecutive_daily_groups(cycles))
     required = int(criteria.required_cycles)
     if consecutive >= required:
         return CriterionResult(
@@ -270,15 +335,29 @@ def _grading_criterion(window: Sequence[CycleEvidence], criteria: AcceptanceCrit
         )
     else:
         floor = float(criteria.useful_discovery_rate_floor)
-        status = PASS if rate is not None and rate >= floor else FAIL
-        results.append(
-            CriterionResult(
-                "useful_discovery_rate",
-                status,
-                f"useful discovery rate {rate:.0%} GOOD+MAYBE over {total} notified repositories "
-                f"(floor {floor:.0%})",
-            )
+        unique_days = {cycle.run_date for cycle in window}
+        complete_live_window = (
+            len(unique_days) == int(criteria.required_cycles)
+            and all(not cycle.dry_run for cycle in window)
+            and len(window) == len(unique_days)
         )
+        # Never accept or reject statistical performance before the full
+        # frozen seven-live-day window exists. Earlier samples are descriptive.
+        if not complete_live_window:
+            status = PENDING
+            detail = (
+                f"provisional useful discovery rate {rate:.2%} GOOD+MAYBE "
+                f"over {total} notified repositories; "
+                f"requires {criteria.required_cycles} distinct live days "
+                f"without duplicates before comparison to {floor:.0%}"
+            )
+        else:
+            status = PASS if rate is not None and rate >= floor else FAIL
+            detail = (
+                f"useful discovery rate {rate:.2%} GOOD+MAYBE "
+                f"over {total} notified repositories (floor {floor:.0%})"
+            )
+        results.append(CriterionResult("useful_discovery_rate", status, detail))
 
     exceptional_bad = [
         grade
@@ -349,6 +428,7 @@ def evaluate_acceptance(
     rules = criteria or AcceptanceCriteria()
     window = _window(cycles, rules)
     results: list[CriterionResult] = [_criteria_cycle_count(cycles, rules)]
+    results.append(_duplicate_live_day_criterion(window))
     results.extend(_hard_safety_criteria(window, rules))
     results.append(_silent_day_criterion(window))
     results.extend(_grading_criterion(window, rules))
@@ -366,8 +446,9 @@ def evaluate_acceptance(
     rate, useful, total = _useful_discovery_rate(window)
     metrics: dict[str, Any] = {
         "cycles_observed": len(cycles),
-        "consecutive_cycles": len(_trailing_consecutive(cycles)),
-        "window_cycles": len(window),
+        "consecutive_cycles": len(_consecutive_daily_groups(cycles)),
+        "window_cycles": len({cycle.run_date for cycle in window}),
+        "window_run_records": len(window),
         "notified_repositories": total,
         "useful_notifications": useful,
         "useful_discovery_rate": rate,

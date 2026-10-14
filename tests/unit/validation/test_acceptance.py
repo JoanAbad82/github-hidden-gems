@@ -203,3 +203,113 @@ def test_operational_metrics_aggregate_llm_cost_and_stage_counts():
     assert report.metrics["candidates_discovered"] == 700
     assert report.metrics["candidates_deep_analyzed"] == 35
     assert report.metrics["projected_monthly_llm_cost"] == pytest.approx(0.14 / 7 * 30)
+
+
+def test_history_sept15_sept16_daily_selection_is_order_independent():
+    """Exact historical run IDs and six human grades; prior gate returned 1/1=100%."""
+    from itertools import permutations
+    dry = CycleEvidence(
+        run_id="RUN-20260915T152056Z", run_date=date(2026, 9, 15),
+        result="SUCCESS_NO_FINDINGS", dry_run=True,
+    )
+    live_15 = CycleEvidence(
+        run_id="RUN-20260915T202610Z", run_date=date(2026, 9, 15),
+        result="PARTIAL_SUCCESS", dry_run=False,
+        issues_created=1,
+        notifications=tuple(
+            NotificationGrade(github_repo_id=i, grade=g, score=s)
+            for i, g, s in [
+                (1355559081, "GOOD", 79), (1353380091, "BAD", 78),
+                (1353488448, "MAYBE", 77), (1353725004, "MAYBE", 77),
+                (1354832590, "BAD", 77),
+            ]
+        ),
+    )
+    live_16 = CycleEvidence(
+        run_id="RUN-20260916T114014Z", run_date=date(2026, 9, 16),
+        result="PARTIAL_SUCCESS", dry_run=False,
+        issues_created=1,
+        notifications=(NotificationGrade(github_repo_id=1340901539, grade="GOOD", score=73),),
+    )
+    for order in permutations((dry, live_15, live_16)):
+        report = evaluate_acceptance(order)
+        assert report.metrics["consecutive_cycles"] == 2
+        assert report.metrics["window_cycles"] == 2
+        assert report.metrics["window_run_records"] == 2
+        assert report.metrics["notified_repositories"] == 6
+        assert report.metrics["useful_notifications"] == 4
+        assert report.metrics["useful_discovery_rate"] == pytest.approx(4 / 6)
+        assert report.metrics["dry_run_cycles"] == 0
+        assert report.status == STATUS_PENDING
+        assert report.criterion("unique_live_cycle_per_day").status == "PASS"
+
+
+def test_duplicated_live_runs_fail_closed_without_dropping_evidence():
+    from itertools import permutations
+
+    regular = [_cycle(i, grades=("GOOD",)) for i in range(7)]
+    duplicate = CycleEvidence(
+        run_id="RUN-SAME-DAY-SECOND",
+        run_date=regular[-1].run_date,
+        result="PARTIAL_SUCCESS",
+        dry_run=False,
+        issues_created=1,
+        notifications=(NotificationGrade(github_repo_id=10991, grade="BAD", score=81),),
+    )
+    for ordered in (
+        tuple(regular) + (duplicate,),
+        (duplicate,) + tuple(reversed(regular)),
+    ):
+        result = evaluate_acceptance(ordered)
+        assert result.metrics["consecutive_cycles"] == 7
+        assert result.metrics["window_cycles"] == 7
+        assert result.metrics["window_run_records"] == 8
+        assert result.metrics["notified_repositories"] == 8
+        assert result.metrics["useful_discovery_rate"] == pytest.approx(7 / 8)
+        assert result.criterion("unique_live_cycle_per_day").status == "FAIL"
+        assert result.status == STATUS_NOT_ACCEPTED
+
+
+def test_multiple_dry_runs_do_not_shadow_same_day_live_result():
+    days = [_cycle(i, grades=("GOOD",)) for i in range(7)]
+    dry_a = _cycle(4, grades=(), dry_run=True)
+    dry_b = CycleEvidence(
+        run_id="RUN-DRY-AFTER", run_date=days[4].run_date,
+        result="SUCCESS_NO_FINDINGS", dry_run=True,
+    )
+    result = evaluate_acceptance((dry_b, *reversed(days), dry_a))
+    assert result.status == STATUS_ACCEPTED
+    assert result.metrics["window_run_records"] == 7
+    assert result.metrics["window_cycles"] == 7
+    assert result.metrics["dry_run_cycles"] == 0
+
+
+def test_dry_only_duplicate_day_does_not_invent_extra_real_day():
+    days = [_cycle(i, grades=("GOOD",), dry_run=True) for i in range(7)]
+    additional = CycleEvidence(
+        run_id="RUN-ADDITIONAL-DRY", run_date=days[-1].run_date,
+        result="SUCCESS_NO_FINDINGS", dry_run=True,
+    )
+    result = evaluate_acceptance((additional, *days))
+    assert result.status == STATUS_PENDING
+    assert result.metrics["consecutive_cycles"] == 7
+    assert result.metrics["window_run_records"] == 7
+    assert result.criterion("production_publication_cycles").status == "PENDING"
+
+
+def test_duplicate_live_day_does_not_push_prior_day_from_seven_day_window():
+    days = [_cycle(i, grades=("BAD", "GOOD")) for i in range(7)]
+    second = CycleEvidence(
+        run_id="RUN-DOUBLE-LIVE",
+        run_date=days[-1].run_date,
+        result="PARTIAL_SUCCESS",
+        dry_run=False,
+        issues_created=1,
+        notifications=(NotificationGrade(github_repo_id=19991, grade="BAD", score=71),),
+    )
+    result = evaluate_acceptance((*days, second))
+    assert result.metrics["window_cycles"] == 7
+    assert result.metrics["window_run_records"] == 8
+    assert result.metrics["notified_repositories"] == 15
+    assert result.criterion("unique_live_cycle_per_day").status == "FAIL"
+    assert result.status == STATUS_NOT_ACCEPTED
