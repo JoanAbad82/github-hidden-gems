@@ -93,16 +93,26 @@ def _claim_checks(readme_text: str | None, observed: Mapping[str, Any]) -> list[
     for claim, patterns in _CLAIM_PATTERNS.items():
         if not any(pattern in text for pattern in patterns):
             continue
-        supported = True
-        if claim in _HEAVY_CLAIM_KEYS and source_files <= 1:
-            supported = False
-        if claim == "scale" and file_count <= 3:
-            supported = False
+        # File counts can establish structural presence, never runtime readiness
+        # or verified scalability. Distinguish insufficient structure from a
+        # claim that static inspection simply cannot verify.
+        if (claim in _HEAVY_CLAIM_KEYS and source_files <= 1) or (
+            claim == "scale" and file_count <= 3
+        ):
+            support_status = "structural_mismatch"
+        elif claim in ("production_ready", "scale"):
+            support_status = "runtime_unverified"
+        else:
+            support_status = "structural_indicators_present"
         checks.append(
             {
                 "claim": claim,
-                "supported_by_implementation": supported,
-                "basis": f"source_file_count={source_files}, file_count={file_count}",
+                "supported_by_implementation": support_status == "structural_indicators_present",
+                "support_status": support_status,
+                "basis": (
+                    f"source_file_count={source_files}, file_count={file_count}; "
+                    "static structural evidence only, not runtime verification"
+                ),
             }
         )
     return checks
@@ -130,7 +140,14 @@ def build_evidence(
 
     flagged = sorted(path for path, text in contents.items() if contains_prompt_injection(text))
     claim_checks = _claim_checks(readme_text, observed)
-    mismatches = [check["claim"] for check in claim_checks if not check["supported_by_implementation"]]
+    mismatches = [
+        check["claim"] for check in claim_checks
+        if check["support_status"] == "structural_mismatch"
+    ]
+    unverified = [
+        check["claim"] for check in claim_checks
+        if check["support_status"] == "runtime_unverified"
+    ]
 
     scale = "small" if observed["file_count"] <= 10 else "medium"
     if observed["file_count"] > 60:
@@ -165,6 +182,7 @@ def build_evidence(
         "claims": [check["claim"] for check in claim_checks],
         "claim_checks": claim_checks,
         "claim_implementation_mismatch": mismatches,
+        "claim_unverified": unverified,
         "prompt_injection_signal": bool(flagged),
         "prompt_injection_files": flagged,
         "untrusted_content": {
