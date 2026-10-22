@@ -71,6 +71,10 @@ class DeepAnalyzer:
         risks: list[str] = []
         for mismatch in evidence["claim_implementation_mismatch"]:
             risks.append(f"README claims '{mismatch}' but the tree shows a minimal implementation")
+        for claim in evidence["claim_unverified"]:
+            risks.append(
+                f"README claims '{claim}' but static inspection cannot verify runtime behaviour"
+            )
         if evidence["prompt_injection_signal"]:
             risks.append("repository text contains instruction-like content; it was fenced as data")
         if not evidence["observed"]["manifest_names"]:

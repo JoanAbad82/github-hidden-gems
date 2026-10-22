@@ -166,7 +166,7 @@ def test_claim_without_implementation_is_flagged(app_config):
     assert evidence["prompt_injection_signal"] is False
 
 
-def test_supported_claim_is_not_flagged(app_config):
+def test_structural_claim_distinguished_from_unverified_readiness(app_config):
     files = {
         "README.md": "# flowkit\nA production-ready framework with tests.\n",
         "pyproject.toml": "[project]\nname='flowkit'\n",
@@ -181,6 +181,41 @@ def test_supported_claim_is_not_flagged(app_config):
     evidence = DeepAnalyzer(app_config, client).analyze(light(file_count=9)).evidence
 
     assert evidence["claim_implementation_mismatch"] == []
+    checks = {item["claim"]: item for item in evidence["claim_checks"]}
+    assert checks["framework"]["support_status"] == "structural_indicators_present"
+    assert checks["production_ready"]["supported_by_implementation"] is False
+    assert checks["production_ready"]["support_status"] == "runtime_unverified"
+    assert evidence["claim_unverified"] == ["production_ready"]
+
+
+def test_c04_source_count_does_not_verify_production_or_scale(app_config):
+    # Frozen synthetic C04 control: source-file quantity does not certify
+    # production readiness or scalability; the deliberately failing test is
+    # deliberately NOT executed by the read-only analyzer.
+    files = {
+        "README.md": "# toolkit\nProduction-ready enterprise multi-agent framework at scale.\n",
+        "pyproject.toml": "[project]\nname='synthetic-c04'\n",
+        "tests/test_quality.py": "def test_quality(): assert False, 'deliberately failing control'\n",
+    }
+    for index in range(6):
+        files[f"src/module{index}.py"] = f"VERSION={index}\n"
+    client = build_client(**files)
+    analysis = DeepAnalyzer(app_config, client).analyze(
+        light(file_count=len(files), tree_paths=sorted(files))
+    )
+    evidence = analysis.evidence
+    checks = {item["claim"]: item for item in evidence["claim_checks"]}
+
+    assert analysis.status == "OK"  # Analysis completed; not application validated.
+    assert "runtime_behaviour" in evidence["unknown"]
+    assert "test_results" in evidence["unknown"]
+    assert checks["production_ready"]["supported_by_implementation"] is False
+    assert checks["scale"]["supported_by_implementation"] is False
+    assert checks["production_ready"]["support_status"] == "runtime_unverified"
+    assert checks["scale"]["support_status"] == "runtime_unverified"
+    assert evidence["claim_unverified"] == ["production_ready", "scale"]
+    assert evidence["claim_implementation_mismatch"] == []
+    assert any("static inspection cannot verify" in risk for risk in analysis.risks)
 
 
 def test_missing_files_are_skipped_without_failing(app_config):
