@@ -34,6 +34,20 @@ External repository code is **never** cloned, installed, imported, built,
 tested or executed. LLM analysis is optional: `LLM_ENABLED=false` keeps the
 whole pipeline working.
 
+## When not to use it
+
+- It is **not** an exhaustive GitHub search or a general-purpose ranking tool:
+  V1 covers only the four areas named above, and intentionally prefers precision
+  over recall.
+- It does **not** audit repository security, prove code correctness, verify
+  runtime claims, or replace a human technical review before adoption. Scores
+  reflect bounded static evidence, not an endorsement of third-party code.
+- It does **not** discover repositories hosted only on GitLab or other forges.
+  The command-line tool can run outside GitHub Actions, but discovery depends
+  on the GitHub API.
+- It is **not** a guaranteed real-time alerting service: runs are bounded by
+  API budgets, may be rate-limited, and may correctly report no findings.
+
 ## Scoring
 
 | Dimension | Max |
@@ -72,6 +86,19 @@ See [docs/operations.md](docs/operations.md) for secrets
 (`GITHUB_TOKEN`, `DEEPSEEK_API_KEY`), the `Watch → Custom → Issues` email
 setting, `NOTIFICATION_GITHUB_LOGIN`, dry-run/live modes, budget zones and
 recovery procedures.
+
+## Maintenance and contributions
+
+The repository is owned by [@JoanAbad82](https://github.com/JoanAbad82) and is
+maintained on a best-effort basis. No fixed release cadence, response time, or
+support service-level agreement is promised. Reproducible bug reports and
+focused pull requests are welcome under [CONTRIBUTING.md](CONTRIBUTING.md),
+which defines evidence, tests, and review boundaries. Report security concerns
+using [SECURITY.md](SECURITY.md); use the separate
+[Research Intake](https://github.com/JoanAbad82/github-hidden-gems-research-intake)
+for unverified hypotheses and adversarial research, with no automatic path to
+production. For deployment and recovery procedures, see
+[docs/operations.md](docs/operations.md).
 
 ## Validation gates
 
