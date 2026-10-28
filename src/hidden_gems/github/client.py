@@ -130,6 +130,7 @@ class GitHubClient:
             read=self._config.read_timeout_seconds,
         )
         self._rate_budget = RateBudget(self._config)
+        self._rate_limit_error: GitHubRateLimited | None = None
         headers = {
             "Accept": ACCEPT_HEADER,
             "X-GitHub-Api-Version": str(self._config.api_version),
@@ -149,6 +150,11 @@ class GitHubClient:
     @property
     def rate_budget(self) -> RateBudget:
         return self._rate_budget
+
+    @property
+    def rate_limited(self) -> bool:
+        """Whether this client has exhausted GitHub quota or received a limit response."""
+        return self._rate_limit_error is not None or self._rate_budget.zone == "RED"
 
     def close(self) -> None:
         self._client.close()
@@ -235,6 +241,10 @@ class GitHubClient:
         json_body: Mapping[str, Any] | None = None,
     ) -> Any:
         endpoint = _normalize_path(path)
+        if self._rate_limit_error is not None:
+            raise self._rate_limit_error
+        if self._rate_budget.zone == "RED":
+            raise GitHubRateLimited("github API quota exhausted", endpoint=endpoint)
         attempt = 0
         while True:
             try:
@@ -305,12 +315,13 @@ class GitHubClient:
                         f"github {method} {endpoint} rate limited "
                         f"(retry-after={retry_after:g}s, status={status})"
                     )
-                raise GitHubRateLimited(
+                self._rate_limit_error = GitHubRateLimited(
                     message,
                     status_code=status,
                     endpoint=endpoint,
                     retry_after=retry_after,
                 )
+                raise self._rate_limit_error
             if status >= 500:
                 if attempt >= self._config.max_retries:
                     raise GitHubServerError(
