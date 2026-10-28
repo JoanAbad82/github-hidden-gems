@@ -360,4 +360,16 @@ class GitHubClient:
         if remaining == 0 and reset_epoch:
             reset_at = datetime.fromtimestamp(reset_epoch, tz=timezone.utc)
             return True, max(0.0, (reset_at - self._clock()).total_seconds())
+        # A secondary limit may leave primary quota available and omit Retry-After.
+        # Recognize GitHub's documented message without exposing response bodies.
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, Mapping):
+            message = payload.get("message")
+            if isinstance(message, str):
+                normalized = message.casefold()
+                if "secondary rate limit" in normalized or "rate limit exceeded" in normalized:
+                    return True, None
         return remaining == 0, None

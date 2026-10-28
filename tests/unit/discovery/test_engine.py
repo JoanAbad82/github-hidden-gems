@@ -220,6 +220,83 @@ def test_search_errors_are_fail_soft(app_config, payload_parser):
     assert [c.repo.github_repo_id for c in result.candidates] == [77]
 
 
+def test_secondary_403_stops_with_response_reason_and_green_budget(app_config, payload_parser):
+    from hidden_gems.github.client import GitHubRateLimited
+
+    class Throttled(FakeClient):
+        def search_repositories(self, query: str, page: int = 1) -> dict:
+            self.executed.append(query)
+            if len(self.executed) == 2:
+                raise GitHubRateLimited("secondary limit", status_code=403)
+            return {"total_count": 1, "items": [payload(77, "acme", "survivor")]}
+
+    client = Throttled({})
+    result = engine.run_discovery(app_config, client, as_of=date(2026, 9, 15), parser=payload_parser)
+
+    assert len(client.executed) == 2
+    assert result.errors == 1
+    assert result.stopped_reason == "RATE_LIMIT_RESPONSE"
+    assert result.rate_zone == "GREEN"
+    assert [c.repo.github_repo_id for c in result.candidates] == [77]
+
+
+
+def test_429_with_available_quota_stops_with_response_reason(app_config, payload_parser):
+    from hidden_gems.github.client import GitHubRateLimited
+
+    class Throttled(FakeClient):
+        def search_repositories(self, query: str, page: int = 1) -> dict:
+            self.executed.append(query)
+            raise GitHubRateLimited("too many requests", status_code=429)
+
+    client = Throttled({})
+    result = engine.run_discovery(app_config, client, as_of=date(2026, 9, 15), parser=payload_parser)
+
+    assert len(client.executed) == 1
+    assert result.queries_executed == 0
+    assert result.errors == 1
+    assert result.stopped_reason == "RATE_LIMIT_RESPONSE"
+    assert result.rate_zone == "GREEN"
+
+
+def test_primary_rate_limit_exhausted_during_request_remains_red(app_config, payload_parser):
+    from hidden_gems.github.client import GitHubRateLimited
+
+    class Exhausted(FakeClient):
+        def search_repositories(self, query: str, page: int = 1) -> dict:
+            self.executed.append(query)
+            self.rate_budget.zone = "RED"
+            raise GitHubRateLimited("API rate limit exceeded", status_code=403)
+
+    client = Exhausted({})
+    result = engine.run_discovery(app_config, client, as_of=date(2026, 9, 15), parser=payload_parser)
+
+    assert len(client.executed) == 1
+    assert result.queries_executed == 0
+    assert result.errors == 1
+    assert result.stopped_reason == "RATE_LIMIT_RED"
+    assert result.rate_zone == "RED"
+
+
+def test_search_permission_denial_stops_after_first_denial(app_config, payload_parser):
+    from hidden_gems.github.client import GitHubAuthError
+
+    class Forbidden(FakeClient):
+        def search_repositories(self, query: str, page: int = 1) -> dict:
+            self.executed.append(query)
+            if len(self.executed) == 2:
+                raise GitHubAuthError("permission denied", status_code=403)
+            return {"total_count": 1, "items": [payload(77, "acme", "survivor")]}
+
+    client = Forbidden({})
+    result = engine.run_discovery(app_config, client, as_of=date(2026, 9, 15), parser=payload_parser)
+
+    assert len(client.executed) == 2
+    assert result.errors == 1
+    assert result.stopped_reason == "SEARCH_AUTH_DENIED"
+    assert [c.repo.github_repo_id for c in result.candidates] == [77]
+
+
 def test_default_parser_is_the_github_package_normalizer(app_config, monkeypatch):
     calls: list[tuple] = []
     module = types.ModuleType("hidden_gems.github.repositories")

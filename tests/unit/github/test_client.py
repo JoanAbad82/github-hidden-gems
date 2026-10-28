@@ -120,6 +120,53 @@ def test_403_without_rate_limit_signal_raises_github_auth_error(client_factory, 
         client.get_json("/repos/acme/private")
 
 
+def test_secondary_403_without_retry_header_is_rate_limited(client_factory, make_response):
+    client, handler = client_factory(
+        [
+            make_response(
+                {"message": "You have exceeded a secondary rate limit. Please wait."},
+                status_code=403,
+                headers={"X-RateLimit-Resource": "search", "X-RateLimit-Remaining": "12"},
+            )
+        ]
+    )
+
+    with pytest.raises(GitHubRateLimited) as excinfo:
+        client.search_repositories("agent")
+
+    assert excinfo.value.status_code == 403
+    assert excinfo.value.endpoint == "/search/repositories"
+    assert handler.call_count == 1
+
+
+def test_permission_403_with_remaining_quota_is_auth_error(client_factory, make_response):
+    client, handler = client_factory(
+        [
+            make_response(
+                {"message": "Resource not accessible by integration"},
+                status_code=403,
+                headers={"X-RateLimit-Resource": "search", "X-RateLimit-Remaining": "12"},
+            )
+        ]
+    )
+
+    with pytest.raises(GitHubAuthError):
+        client.search_repositories("agent")
+
+    assert handler.call_count == 1
+
+
+def test_429_without_retry_header_is_rate_limited(client_factory, make_response):
+    client, handler = client_factory(
+        [make_response({"message": "Too many requests"}, status_code=429)]
+    )
+
+    with pytest.raises(GitHubRateLimited):
+        client.search_repositories("agent")
+
+    assert handler.call_count == 1
+
+
 def test_retry_after_is_honoured_before_retrying(client_factory, make_response, sleeps):
     client, handler = client_factory(
         [

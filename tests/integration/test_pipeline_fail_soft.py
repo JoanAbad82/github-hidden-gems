@@ -78,3 +78,33 @@ def test_rate_limit_stop_persists_state_and_reports_partial_success(app_config, 
         assert store.integrity_check() is True
     finally:
         store.close()
+
+
+def test_secondary_limit_keeps_partial_success_and_skips_relationships(app_config, tmp_path):
+    from hidden_gems.github.client import GitHubRateLimited
+
+    github = FakeGitHub([payload(8201, "acme-labs", "repo")])
+    store = HistoryStore.open(tmp_path / "history.sqlite3")
+    original = github.search_repositories
+    calls = {"count": 0}
+
+    def secondary_search(query: str, page: int = 1) -> dict:
+        calls["count"] += 1
+        if calls["count"] == 2:
+            raise GitHubRateLimited("secondary rate limit", status_code=403)
+        return original(query, page)
+
+    github.search_repositories = secondary_search
+
+    try:
+        summary = orchestrator.run_pipeline(
+            app_config, store, github, None, run_context("RUN-SECONDARY-1"),
+            as_of=NOW, llm_enabled=False
+        )
+        assert calls["count"] == 2, "a secondary limit must stop further discovery searches"
+        assert github.rate_budget.zone == "GREEN"
+        assert summary.result == "PARTIAL_SUCCESS_RATE_LIMIT"
+        assert github.owner_scans == [], "relationship expansion must not start after a secondary limit"
+        assert store.integrity_check() is True
+    finally:
+        store.close()

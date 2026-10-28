@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any, Callable, Mapping, Sequence
 
 from ..config import AppConfig
+from ..github.client import GitHubAuthError, GitHubRateLimited
 from ..models import DiscoveryCandidate
 from .queries import DiscoveryQuery, QueryPlan, build_query_plan
 
@@ -14,7 +15,9 @@ PayloadParser = Callable[..., "DiscoveryCandidate | None"]
 
 STOP_BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
 STOP_RATE_LIMIT_RED = "RATE_LIMIT_RED"
+STOP_RATE_LIMIT_RESPONSE = "RATE_LIMIT_RESPONSE"
 STOP_RATE_LIMIT_YELLOW = "RATE_LIMIT_YELLOW"
+STOP_SEARCH_AUTH_DENIED = "SEARCH_AUTH_DENIED"
 
 
 @dataclass
@@ -126,7 +129,18 @@ def run_discovery(
             break
         try:
             payload = client.search_repositories(query.query, page=1)
-        except Exception:  # fail-soft: a single query never aborts discovery
+        except GitHubRateLimited:
+            result.errors += 1
+            result.rate_zone = _zone(client)
+            result.stopped_reason = (
+                STOP_RATE_LIMIT_RED if result.rate_zone == "RED" else STOP_RATE_LIMIT_RESPONSE
+            )
+            break
+        except GitHubAuthError:
+            result.errors += 1
+            result.stopped_reason = STOP_SEARCH_AUTH_DENIED
+            break
+        except Exception:  # other isolated search failures remain fail-soft
             result.errors += 1
             continue
         result.queries_executed += 1

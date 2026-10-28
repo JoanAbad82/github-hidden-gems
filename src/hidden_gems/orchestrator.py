@@ -107,7 +107,7 @@ def run_pipeline(
         counts["discovered"] = len(discovery.candidates)
         if discovery.errors:
             errors.append(f"discovery_errors={discovery.errors}")
-        rate_limited = discovery.stopped_reason == "RATE_LIMIT_RED"
+        rate_limited = discovery.stopped_reason in {"RATE_LIMIT_RED", "RATE_LIMIT_RESPONSE"}
         _record_discovery_hits(history, discovery.candidates, run_id=context.run_id, seen_at=moment)
 
         admitted: list[DiscoveryCandidate] = []
