@@ -238,6 +238,87 @@ def test_429_without_retry_header_is_rate_limited(client_factory, make_response)
     assert handler.call_count == 1
 
 
+@pytest.mark.parametrize("status", [403, 429])
+def test_red_quota_with_short_retry_after_stops_all_gets_and_posts(
+    client_factory, make_response, fixed_now, sleeps, status
+):
+    reset = int((fixed_now + timedelta(minutes=10)).timestamp())
+    client, handler = client_factory(
+        [
+            make_response(
+                {"message": "API rate limit exceeded"},
+                status_code=status,
+                headers={
+                    "X-RateLimit-Resource": "search",
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(reset),
+                    "Retry-After": "2",
+                },
+            ),
+            make_response({"unexpected": "retry"}),
+            make_response({"unexpected": "publication"}),
+        ]
+    )
+
+    with pytest.raises(GitHubRateLimited) as excinfo:
+        client.get_json("/repos/acme/tool")
+    assert excinfo.value.status_code == status
+    with pytest.raises(GitHubRateLimited):
+        client.get_json("/repos/acme/again")
+    with pytest.raises(GitHubRateLimited):
+        client.post_json("/repos/acme/tool/issues", {"title": "must not publish"})
+
+    assert sleeps == []
+    assert [(request.method, request.url.path) for request in handler.requests] == [
+        ("GET", "/repos/acme/tool"),
+    ]
+
+
+@pytest.mark.parametrize("status", [500, 503])
+def test_red_quota_on_server_error_prevents_a_second_network_attempt(
+    client_factory, make_response, status
+):
+    client, handler = client_factory(
+        [
+            make_response(
+                {"message": "server error"},
+                status_code=status,
+                headers={"X-RateLimit-Resource": "core", "X-RateLimit-Remaining": "0"},
+            ),
+            make_response({"unexpected": "retry"}),
+        ]
+    )
+
+    with pytest.raises(GitHubRateLimited):
+        client.get_json("/repos/acme/tool")
+    assert [(request.method, request.url.path) for request in handler.requests] == [
+        ("GET", "/repos/acme/tool"),
+    ]
+
+
+@pytest.mark.parametrize("status", [403, 429])
+def test_retry_after_can_recover_when_quota_is_not_red(
+    client_factory, make_response, sleeps, status
+):
+    client, handler = client_factory(
+        [
+            make_response(
+                {"message": "secondary rate limit"},
+                status_code=status,
+                headers={"X-RateLimit-Resource": "search", "X-RateLimit-Remaining": "12", "Retry-After": "2"},
+            ),
+            make_response({"ok": True}),
+        ]
+    )
+
+    assert client.get_json("/repos/acme/tool") == {"ok": True}
+    assert sleeps == [2.0]
+    assert [(request.method, request.url.path) for request in handler.requests] == [
+        ("GET", "/repos/acme/tool"),
+        ("GET", "/repos/acme/tool"),
+    ]
+
+
 def test_retry_after_is_honoured_before_retrying(client_factory, make_response, sleeps):
     client, handler = client_factory(
         [

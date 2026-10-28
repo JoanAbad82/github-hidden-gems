@@ -241,12 +241,12 @@ class GitHubClient:
         json_body: Mapping[str, Any] | None = None,
     ) -> Any:
         endpoint = _normalize_path(path)
-        if self._rate_limit_error is not None:
-            raise self._rate_limit_error
-        if self._rate_budget.zone == "RED":
-            raise GitHubRateLimited("github API quota exhausted", endpoint=endpoint)
         attempt = 0
         while True:
+            if self._rate_limit_error is not None:
+                raise self._rate_limit_error
+            if self._rate_budget.zone == "RED":
+                raise GitHubRateLimited("github API quota exhausted", endpoint=endpoint)
             try:
                 response = self._client.request(
                     method, endpoint, params=params, json=json_body
@@ -297,6 +297,7 @@ class GitHubClient:
                     )
                 if (
                     retry_after is not None
+                    and self._rate_budget.zone != "RED"
                     and attempt < self._config.max_retries
                     and retry_after <= self._config.backoff_max_seconds
                 ):
