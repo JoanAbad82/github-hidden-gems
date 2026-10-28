@@ -12,6 +12,7 @@ from .config import AppConfig
 from .deep_analysis.analyzer import DeepAnalyzer
 from .discovery.engine import run_discovery
 from .filtering.hard_filter import FilterEvidence, evaluate_candidate
+from .github.client import GitHubRateLimited
 from .github.issues import GitHubIssuePublisher
 from .light_analysis.analyzer import LightAnalyzer
 from .llm.base import LLMBudget, LLMBudgetExceeded, DisabledLLMProvider, LLMProviderError
@@ -107,7 +108,10 @@ def run_pipeline(
         counts["discovered"] = len(discovery.candidates)
         if discovery.errors:
             errors.append(f"discovery_errors={discovery.errors}")
-        rate_limited = discovery.stopped_reason == "RATE_LIMIT_RED"
+        rate_limited = (
+            discovery.stopped_reason in {"RATE_LIMIT_RED", "RATE_LIMIT_RESPONSE"}
+            or bool(getattr(github, "rate_limited", False))
+        )
         _record_discovery_hits(history, discovery.candidates, run_id=context.run_id, seen_at=moment)
 
         admitted: list[DiscoveryCandidate] = []
@@ -133,9 +137,18 @@ def run_pipeline(
         light_budget = int(budgets["max_light_analysis"])
         light_analyzed_count = 0
         for candidate in admitted[:light_budget]:
-            analyzed = _light_analyze(
-                analyzer, history, candidate, context, moment, errors
-            )
+            if rate_limited:
+                break
+            try:
+                analyzed = _light_analyze(
+                    analyzer, history, candidate, context, moment, errors
+                )
+            except GitHubRateLimited:
+                errors.append(f"light:{candidate.repo.github_repo_id}:GitHubRateLimited")
+                rate_limited = True
+                break
+            if getattr(github, "rate_limited", False):
+                rate_limited = True
             if analyzed is None:
                 continue
             light_analyzed_count += 1
@@ -169,11 +182,14 @@ def run_pipeline(
             counts["related"] = len(related)
             for candidate, analysis in related:
                 lights.append((candidate, analysis))
+            rate_limited = rate_limited or bool(getattr(github, "rate_limited", False))
 
         findings: list[SelectedFinding] = []
         deep_budget = int(budgets["max_deep_analysis"])
         ranked = _rank_by_preliminary(config, lights, moment)
         for candidate, analysis, preliminary in ranked:
+            if rate_limited:
+                break
             maximum = maximum_possible_score(
                 preliminary, notification_threshold=config.scoring.notification_threshold
             )
@@ -201,6 +217,9 @@ def run_pipeline(
                 deep = _maybe_enrich(config, llm, deep, enrich, llm_budget, errors)
                 if enrich:
                     llm_candidates_enriched += 1
+            except GitHubRateLimited:
+                errors.append(f"deep:{candidate.repo.github_repo_id}:GitHubRateLimited")
+                rate_limited = True
             except Exception as exc:  # fail-soft per candidate
                 errors.append(f"deep:{candidate.repo.github_repo_id}:{type(exc).__name__}")
 
@@ -257,7 +276,7 @@ def run_pipeline(
             fingerprint = report_fingerprint(
                 selected, run_date, config.scoring.score_version
             )
-            if not context.dry_run:
+            if not context.dry_run and not rate_limited:
                 issue = _publish(
                     config=config,
                     github=github,
@@ -402,6 +421,8 @@ def _light_analyze(
 ) -> LightAnalysis | None:
     try:
         analysis = analyzer.analyze(candidate, as_of=moment)
+    except GitHubRateLimited:
+        raise
     except Exception as exc:
         errors.append(f"light:{candidate.repo.github_repo_id}:{type(exc).__name__}")
         return None
@@ -492,6 +513,9 @@ def _expand_relationships(
         candidates = explore_relationships(
             config=config, client=github, seeds=seeds, existing_repo_ids=seen_ids
         )
+    except GitHubRateLimited:
+        errors.append("relationships:GitHubRateLimited")
+        return []
     except Exception as exc:
         errors.append(f"relationships:{type(exc).__name__}")
         return []
@@ -517,7 +541,11 @@ def _expand_relationships(
             query_id="RELATIONSHIP_EXPLORATION",
             seen_at=moment,
         )
-        analyzed = _light_analyze(analyzer, history, candidate, context, moment, errors)
+        try:
+            analyzed = _light_analyze(analyzer, history, candidate, context, moment, errors)
+        except GitHubRateLimited:
+            errors.append(f"relationships:{candidate.repo.github_repo_id}:GitHubRateLimited")
+            break
         if analyzed is None:
             continue
         post_light = _post_light_filter_decision(

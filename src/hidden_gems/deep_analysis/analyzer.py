@@ -6,6 +6,7 @@ import base64
 from typing import Any, Mapping, Sequence
 
 from ..config import AppConfig
+from ..github.client import GitHubRateLimited
 from ..models import DeepAnalysis, LightAnalysis
 from ..security.untrusted_content import contains_prompt_injection
 from .evidence_builder import build_evidence
@@ -34,6 +35,8 @@ class DeepAnalyzer:
             payload = self._client.get_json(
                 f"/repos/{light.repo.full_name}/contents/{path}", {"ref": ref}
             )
+        except GitHubRateLimited:
+            raise
         except Exception:
             return None
         if not isinstance(payload, Mapping):

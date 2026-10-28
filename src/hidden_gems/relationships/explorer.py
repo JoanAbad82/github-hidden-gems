@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Collection, Iterable, Mapping, Sequence
 
 from ..config import AppConfig
+from ..github.client import GitHubRateLimited
 from ..github.repositories import payload_to_candidate
 from ..models import DiscoveryCandidate, LightAnalysis
 
@@ -89,6 +90,8 @@ def _same_owner(client: Any, owner: str, exclude: set[int]) -> list[DiscoveryCan
         payload = client.get_json(
             f"/users/{owner}/repos", {"per_page": 50, "sort": "updated", "type": "owner"}
         )
+    except GitHubRateLimited:
+        raise
     except Exception:
         return []
     results: list[DiscoveryCandidate] = []
@@ -117,6 +120,8 @@ def _from_links(
             break
         try:
             payload = client.get_repo_metadata(full_name)
+        except GitHubRateLimited:
+            raise
         except Exception:
             continue
         if not isinstance(payload, Mapping):

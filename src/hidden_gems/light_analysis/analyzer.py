@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 from ..common.hashing import hash_manifests, hash_readme, hash_tree, relevant_content_hash
 from ..common.time import days_ago
 from ..config import AppConfig
+from ..github.client import GitHubRateLimited
 from ..models import DiscoveryCandidate, LightAnalysis
 from .activity import classify_activity
 from .classification import detect_areas, negative_signals, quality_signals
@@ -40,6 +41,8 @@ class LightAnalyzer:
     def _readme(self, candidate: DiscoveryCandidate) -> str | None:
         try:
             return self._client.get_readme(candidate.repo.full_name)
+        except GitHubRateLimited:
+            raise
         except Exception:
             return None
 
@@ -47,6 +50,8 @@ class LightAnalyzer:
         ref = candidate.default_branch or "HEAD"
         try:
             entries = self._client.get_tree(candidate.repo.full_name, ref)
+        except GitHubRateLimited:
+            raise
         except Exception:
             return []
         bounded = [entry for entry in entries or () if isinstance(entry, Mapping)]
@@ -55,6 +60,8 @@ class LightAnalyzer:
     def _releases(self, candidate: DiscoveryCandidate) -> list[Mapping[str, Any]]:
         try:
             releases = self._client.get_releases(candidate.repo.full_name, RELEASE_LIMIT)
+        except GitHubRateLimited:
+            raise
         except Exception:
             return []
         return [entry for entry in releases or () if isinstance(entry, Mapping)]
@@ -66,6 +73,8 @@ class LightAnalyzer:
                 since=days_ago(COMMIT_LOOKBACK_DAYS, as_of=as_of),
                 limit=COMMIT_LIMIT,
             )
+        except GitHubRateLimited:
+            raise
         except Exception:
             return []
         return [entry for entry in commits or () if isinstance(entry, Mapping)]
@@ -84,6 +93,8 @@ class LightAnalyzer:
                 payload = self._client.get_json(
                     f"/repos/{candidate.repo.full_name}/contents/{path}", {"ref": ref}
                 )
+            except GitHubRateLimited:
+                raise
             except Exception:
                 continue
             if not isinstance(payload, Mapping) or payload.get("encoding") != "base64":

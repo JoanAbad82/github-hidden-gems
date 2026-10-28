@@ -130,6 +130,7 @@ class GitHubClient:
             read=self._config.read_timeout_seconds,
         )
         self._rate_budget = RateBudget(self._config)
+        self._rate_limit_error: GitHubRateLimited | None = None
         headers = {
             "Accept": ACCEPT_HEADER,
             "X-GitHub-Api-Version": str(self._config.api_version),
@@ -149,6 +150,11 @@ class GitHubClient:
     @property
     def rate_budget(self) -> RateBudget:
         return self._rate_budget
+
+    @property
+    def rate_limited(self) -> bool:
+        """Whether this client has exhausted GitHub quota or received a limit response."""
+        return self._rate_limit_error is not None or self._rate_budget.zone == "RED"
 
     def close(self) -> None:
         self._client.close()
@@ -237,6 +243,10 @@ class GitHubClient:
         endpoint = _normalize_path(path)
         attempt = 0
         while True:
+            if self._rate_limit_error is not None:
+                raise self._rate_limit_error
+            if self._rate_budget.zone == "RED":
+                raise GitHubRateLimited("github API quota exhausted", endpoint=endpoint)
             try:
                 response = self._client.request(
                     method, endpoint, params=params, json=json_body
@@ -287,6 +297,7 @@ class GitHubClient:
                     )
                 if (
                     retry_after is not None
+                    and self._rate_budget.zone != "RED"
                     and attempt < self._config.max_retries
                     and retry_after <= self._config.backoff_max_seconds
                 ):
@@ -305,12 +316,13 @@ class GitHubClient:
                         f"github {method} {endpoint} rate limited "
                         f"(retry-after={retry_after:g}s, status={status})"
                     )
-                raise GitHubRateLimited(
+                self._rate_limit_error = GitHubRateLimited(
                     message,
                     status_code=status,
                     endpoint=endpoint,
                     retry_after=retry_after,
                 )
+                raise self._rate_limit_error
             if status >= 500:
                 if attempt >= self._config.max_retries:
                     raise GitHubServerError(
@@ -360,4 +372,16 @@ class GitHubClient:
         if remaining == 0 and reset_epoch:
             reset_at = datetime.fromtimestamp(reset_epoch, tz=timezone.utc)
             return True, max(0.0, (reset_at - self._clock()).total_seconds())
+        # A secondary limit may leave primary quota available and omit Retry-After.
+        # Recognize GitHub's documented message without exposing response bodies.
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+        if isinstance(payload, Mapping):
+            message = payload.get("message")
+            if isinstance(message, str):
+                normalized = message.casefold()
+                if "secondary rate limit" in normalized or "rate limit exceeded" in normalized:
+                    return True, None
         return remaining == 0, None
