@@ -172,6 +172,8 @@ class GitHubClient:
         )
         if not isinstance(payload, Mapping):
             raise GitHubError("unexpected search payload", endpoint="/search/repositories")
+        if payload.get("incomplete_results") is True:
+            raise GitHubError("incomplete repository search results", endpoint="/search/repositories")
         items = payload.get("items")
         return {
             "total_count": _int_or_none(payload.get("total_count")) or 0,

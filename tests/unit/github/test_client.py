@@ -520,6 +520,35 @@ def test_search_repositories_returns_total_count_and_raw_items(
     assert handler.last_request.url.path == "/search/repositories"
 
 
+def test_search_repositories_rejects_incomplete_results_without_leaking(
+    client_factory, make_response, caplog
+):
+    items = [{"id": 101, "full_name": "example/tool", "description": TOKEN}]
+    client, handler = client_factory(
+        [make_response({"total_count": 2, "incomplete_results": True, "items": items})]
+    )
+
+    with pytest.raises(GitHubError) as excinfo:
+        client.search_repositories("agent")
+
+    assert excinfo.value.endpoint == "/search/repositories"
+    assert excinfo.value.status_code is None
+    assert "incomplete" in str(excinfo.value)
+    assert "example/tool" not in str(excinfo.value)
+    assert TOKEN not in str(excinfo.value)
+    assert TOKEN not in caplog.text
+    assert handler.call_count == 1
+
+
+def test_search_repositories_missing_incomplete_flag_preserves_items(
+    client_factory, make_response
+):
+    items = [{"id": 2, "full_name": "acme/legacy"}]
+    client, _ = client_factory([make_response({"total_count": 1, "items": items})])
+
+    assert client.search_repositories("agent") == {"total_count": 1, "items": items}
+
+
 def test_search_repositories_tolerates_missing_keys(client_factory, make_response):
     client, _ = client_factory([make_response({})])
 
