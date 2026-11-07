@@ -914,6 +914,12 @@ def validate_config(config: AppConfig) -> None:
         raise ConfigError("max_deep_analysis must not exceed max_light_analysis")
     if config.limits.llm.max_llm_calls_per_run < config.limits.llm.max_llm_candidates_per_run:
         raise ConfigError("max_llm_calls_per_run must be >= max_llm_candidates_per_run")
+    # DeepSeek discontinued deepseek-chat and deepseek-reasoner in July 2026.
+    # Fail closed on aliases or unknown models before any billable request.
+    if config.llm.provider == "deepseek" and config.llm.model not in {
+        "deepseek-flash", "deepseek-v4-pro"
+    }:
+        raise ConfigError("llm.model must be a documented active DeepSeek model")
 
     for language in config.discovery.preferred_languages:
         if not language.strip():
