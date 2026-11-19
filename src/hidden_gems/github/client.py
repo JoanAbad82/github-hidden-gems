@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
@@ -245,6 +246,15 @@ class GitHubClient:
         endpoint = _normalize_path(path)
         attempt = 0
         while True:
+            # Recheck on EVERY Issue POST attempt, including retry after backoff.
+            if (
+                method.upper() == "POST"
+                and endpoint == "/repos/JoanAbad82/github-hidden-gems/issues"
+                and (os.environ.get("GITHUB_ACTIONS") == "true"
+                     or os.environ.get("HIDDEN_GEMS_V1_UTC_GUARD") == "1")
+            ):
+                from hidden_gems.utc_live_guard import require_live_window
+                require_live_window("issue-post", now=self._clock())
             if self._rate_limit_error is not None:
                 raise self._rate_limit_error
             if self._rate_budget.zone == "RED":

@@ -31,6 +31,7 @@ jobs:
       LLM_ENABLED: ${{ vars.HIDDEN_GEMS_LLM_ENABLED || 'false' }}
       NOTIFICATION_GITHUB_LOGIN: ${{ vars.NOTIFICATION_GITHUB_LOGIN }}
       HIDDEN_GEMS_SCHEDULED_LIVE: ${{ vars.HIDDEN_GEMS_SCHEDULED_LIVE || 'false' }}
+      HIDDEN_GEMS_V1_UTC_GUARD: "1"
 
     steps:
       - name: Checkout main
@@ -76,6 +77,10 @@ jobs:
             echo "invalid dry_run value: $dry" >&2
             exit 2
           fi
+          if [ "$dry" = "false" ]; then
+            python -m hidden_gems.utc_live_guard --phase mode
+            test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          fi
           echo "dry_run=$dry" >> "$GITHUB_OUTPUT"
 
       - name: Validate configuration
@@ -103,6 +108,7 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             hidden-gems run --root . --db state/history.sqlite3 --dry-run
           else
+            python -m hidden_gems.utc_live_guard --phase pre-run
             hidden-gems run --root . --db state/history.sqlite3 --live
           fi
 
@@ -173,6 +179,7 @@ jobs:
         if: ${{ steps.mode.outputs.dry_run == 'false' }}
         working-directory: app
         run: |
+          python -m hidden_gems.utc_live_guard --phase pre-stage
           python -m hidden_gems.history.live_state_guard stage-live --state-dir ../state --app-db state/history.sqlite3
 
       - name: Persist state branch
@@ -182,13 +189,15 @@ jobs:
           set -euo pipefail
           git config user.name "hidden-gems-bot"
           git config user.email "hidden-gems-bot@users.noreply.github.com"
+          python -m hidden_gems.utc_live_guard --phase pre-state
           python -m hidden_gems.history.live_state_guard verify --state-dir .
           git add history.sqlite3 state_manifest.json backups
           if git diff --cached --quiet; then
             echo "no state change"
           else
             git commit -m "state: run $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push origin HEAD:state
+            python -m hidden_gems.utc_live_guard --phase pre-push
+            timeout 60s git push origin HEAD:state
             pushed_sha="$(git rev-parse HEAD)"
             remote_sha="$(git ls-remote --heads origin state | cut -f1)"
             test "$pushed_sha" = "$remote_sha" || { echo "state remote SHA mismatch" >&2; exit 3; }
